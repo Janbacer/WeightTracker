@@ -120,31 +120,11 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'O
   transition:all .2s;
 }
 .photo-btn:active { background:rgba(0,229,160,.08); }
+.photo-btn input { position:absolute; inset:0; opacity:0; cursor:pointer; font-size:0; }
 .photo-btn-icon { font-size:28px; }
 .photo-btn-text { display:flex; flex-direction:column; gap:2px; }
 .photo-btn-text strong { font-size:15px; font-weight:600; color:var(--text); }
 .photo-btn-text span { font-size:12px; color:var(--text2); font-weight:300; }
-.photo-actions {
-  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;
-}
-.photo-action {
-  display:flex; align-items:center; justify-content:center;
-  padding:11px 10px; border-radius:var(--rs);
-  border:1px solid var(--border2); background:var(--card);
-  color:var(--text); font-family:'Outfit',sans-serif;
-  font-size:13px; font-weight:600; cursor:pointer;
-}
-.photo-action:active { opacity:.9; }
-.photo-hidden { display:none; }
-.photo-preview {
-  display:none; margin-bottom:12px;
-  border:1px solid var(--border); border-radius:var(--rs);
-  background:var(--card); padding:8px;
-}
-.photo-preview img {
-  width:100%; max-height:220px; object-fit:contain;
-  border-radius:8px; display:block; background:var(--bg2);
-}
 
 /* ── Status ──────────────────────────────────────────────────────────── */
 .st {
@@ -256,6 +236,45 @@ select {
 /* ── Fade-in on tab switch ───────────────────────────────────────────── */
 @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 .scr.on { animation:fadeUp .18s ease; }
+
+/* ── Crop/Rotate overlay ─────────────────────────────────────────────── */
+#cropOv {
+  display:none; position:fixed; inset:0; z-index:400;
+  background:#0a0b0f; flex-direction:column;
+}
+#cropOv.open { display:flex; }
+.crop-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top,0px));
+  background:#0d0f14; flex-shrink:0; border-bottom:1px solid var(--border);
+}
+.crop-bar button {
+  font-size:13px; font-weight:600; font-family:'Outfit',sans-serif;
+  background:none; border:none; cursor:pointer; padding:6px 12px;
+  border-radius:7px;
+}
+#cropCancel { color:var(--text2); }
+#cropConfirm { background:var(--mint); color:#0a1a12; }
+#cropConfirm:disabled { opacity:.35; cursor:not-allowed; }
+.crop-canvas-wrap {
+  flex:1; position:relative; overflow:hidden; touch-action:none;
+  display:flex; align-items:center; justify-content:center;
+}
+#cropPhotoCanvas { position:absolute; }
+#cropSelCanvas   { position:absolute; inset:0; width:100%; height:100%; }
+.crop-tools {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:12px 16px; padding-bottom:calc(12px + var(--sb));
+  background:#0d0f14; flex-shrink:0; border-top:1px solid var(--border);
+}
+.crop-tool-btn {
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:var(--bg3); border:1px solid var(--border2);
+  border-radius:10px; padding:9px 16px; cursor:pointer;
+  font-size:12px; font-weight:500; color:var(--text2);
+  font-family:'Outfit',sans-serif; min-width:70px;
+}
+.crop-tool-btn span { font-size:18px; }
 </style>
 </head>
 <body>
@@ -306,26 +325,24 @@ select {
         </div>
       </details>
 
-      <!-- Photo -->
-      <div class="photo-btn">
-        <div class="photo-btn-icon">📷</div>
-        <div class="photo-btn-text">
-          <strong>Scan scale</strong>
-          <span>Take a photo or choose one you already took</span>
+      <!-- Photo buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div class="photo-btn" style="margin-bottom:0;">
+          <input type="file" accept="image/*" capture="environment" onchange="openCropEditor(event)">
+          <div class="photo-btn-icon">📷</div>
+          <div class="photo-btn-text">
+            <strong>Take photo</strong>
+            <span>Use camera</span>
+          </div>
         </div>
-      </div>
-      <div class="photo-actions">
-        <label class="photo-action">
-          Take photo
-          <input class="photo-hidden" type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)">
-        </label>
-        <label class="photo-action">
-          Choose existing
-          <input class="photo-hidden" type="file" accept="image/*" onchange="handlePhoto(event)">
-        </label>
-      </div>
-      <div id="photoPreview" class="photo-preview">
-        <img id="photoPreviewImg" alt="Selected scale photo preview">
+        <div class="photo-btn" style="margin-bottom:0;">
+          <input type="file" accept="image/*" onchange="openCropEditor(event)">
+          <div class="photo-btn-icon">🖼️</div>
+          <div class="photo-btn-text">
+            <strong>Pick photo</strong>
+            <span>From gallery</span>
+          </div>
+        </div>
       </div>
 
       <!-- Status -->
@@ -398,6 +415,24 @@ select {
   </div>
 </div>
 
+<!-- Crop / Rotate overlay -->
+<div id="cropOv">
+  <div class="crop-bar">
+    <button id="cropCancel" onclick="closeCropEditor()">Cancel</button>
+    <span style="font-size:13px;color:var(--text2);font-weight:500;">Crop &amp; rotate</span>
+    <button id="cropConfirm" onclick="confirmCrop()" disabled>Send to Gemini</button>
+  </div>
+  <div class="crop-canvas-wrap" id="cropWrap">
+    <canvas id="cropPhotoCanvas"></canvas>
+    <canvas id="cropSelCanvas"></canvas>
+  </div>
+  <div class="crop-tools">
+    <button class="crop-tool-btn" onclick="rotateImage(-90)"><span>↺</span>Rotate L</button>
+    <button class="crop-tool-btn" onclick="rotateImage(90)"><span>↻</span>Rotate R</button>
+    <button class="crop-tool-btn" onclick="resetCrop()"><span>⊠</span>Reset crop</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -405,7 +440,6 @@ select {
 <script>
 // ── Storage ───────────────────────────────────────────────────────────
 const SK = 'wt_v1', HK = 'wt_ht', GK = 'wt_gemini';
-let previewUrl = null;
 const load = () => { try { return JSON.parse(localStorage.getItem(SK) || '[]'); } catch { return []; } };
 const save = a => localStorage.setItem(SK, JSON.stringify(a));
 const getHt = () => parseFloat(localStorage.getItem(HK)) || null;
@@ -487,28 +521,154 @@ function setGeminiStatus(isSet) {
   el.style.color = isSet ? 'var(--mint)' : 'var(--text3)';
 }
 
-function showPhotoPreview(file) {
-  const box = document.getElementById('photoPreview');
-  const img = document.getElementById('photoPreviewImg');
-  if (previewUrl) URL.revokeObjectURL(previewUrl);
-  previewUrl = URL.createObjectURL(file);
-  img.src = previewUrl;
-  box.style.display = 'block';
+// ── Crop Editor ───────────────────────────────────────────────────────
+let _srcImg = null, _rotation = 0, _sel = null, _drag = false, _layout = {};
+
+function openCropEditor(e) {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      _srcImg = img; _rotation = 0; _sel = null;
+      document.getElementById('cropOv').classList.add('open');
+      document.getElementById('cropConfirm').disabled = true;
+      requestAnimationFrame(initCropCanvas);
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(f);
 }
 
-// ── Photo → Gemini ────────────────────────────────────────────────────
-function handlePhoto(e) {
-  const f = e.target.files[0]; if (!f) return; e.target.value = '';
-  showPhotoPreview(f);
-  if (!getGeminiKey()) {
-    setStatus('err', 'Add your Gemini API key first');
-    document.getElementById('geminiBox').open = true;
-    return;
+function getRotatedSize(w, h, deg) {
+  const r = deg * Math.PI / 180;
+  return {
+    w: Math.round(Math.abs(w * Math.cos(r)) + Math.abs(h * Math.sin(r))),
+    h: Math.round(Math.abs(w * Math.sin(r)) + Math.abs(h * Math.cos(r)))
+  };
+}
+
+function initCropCanvas() {
+  const wrap = document.getElementById('cropWrap');
+  const pc = document.getElementById('cropPhotoCanvas');
+  const sc = document.getElementById('cropSelCanvas');
+  const maxW = wrap.clientWidth, maxH = wrap.clientHeight;
+
+  const rs = getRotatedSize(_srcImg.width, _srcImg.height, _rotation);
+  const scale = Math.min(maxW / rs.w, maxH / rs.h, 1);
+  const dw = Math.round(rs.w * scale), dh = Math.round(rs.h * scale);
+
+  pc.width = dw; pc.height = dh;
+  pc.style.width = dw + 'px'; pc.style.height = dh + 'px';
+  pc.style.left = ((maxW - dw) / 2) + 'px';
+  pc.style.top  = ((maxH - dh) / 2) + 'px';
+
+  sc.style.left = pc.style.left; sc.style.top = pc.style.top;
+  sc.style.width = dw + 'px'; sc.style.height = dh + 'px';
+  sc.width = dw; sc.height = dh;
+
+  _layout = { scale, dw, dh, offX: (maxW - dw) / 2, offY: (maxH - dh) / 2 };
+
+  // Draw rotated image
+  const ctx = pc.getContext('2d');
+  ctx.clearRect(0, 0, dw, dh);
+  ctx.save();
+  ctx.translate(dw / 2, dh / 2);
+  ctx.rotate(_rotation * Math.PI / 180);
+  ctx.drawImage(_srcImg, -_srcImg.width * scale / 2, -_srcImg.height * scale / 2,
+    _srcImg.width * scale, _srcImg.height * scale);
+  ctx.restore();
+
+  // Reattach events
+  sc.onmousedown = sc.ontouchstart = selStart;
+  sc.onmousemove = sc.ontouchmove  = selMove;
+  sc.onmouseup   = sc.ontouchend   = selEnd;
+  drawSel();
+}
+
+function getEvPos(e) {
+  const sc = document.getElementById('cropSelCanvas');
+  const rect = sc.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - rect.left) * (sc.width / rect.width),
+    y: (src.clientY - rect.top)  * (sc.height / rect.height)
+  };
+}
+function selStart(e) { e.preventDefault(); _drag = true; const p = getEvPos(e); _sel = { x1:p.x,y1:p.y,x2:p.x,y2:p.y }; drawSel(); }
+function selMove(e)  { e.preventDefault(); if (!_drag || !_sel) return; const p = getEvPos(e); _sel.x2=p.x; _sel.y2=p.y; drawSel(); }
+function selEnd(e)   {
+  e.preventDefault(); _drag = false;
+  if (_sel && Math.abs(_sel.x2-_sel.x1) > 8 && Math.abs(_sel.y2-_sel.y1) > 8) {
+    document.getElementById('cropConfirm').disabled = false;
   }
+  drawSel();
+}
+
+function drawSel() {
+  const sc = document.getElementById('cropSelCanvas');
+  const ctx = sc.getContext('2d');
+  ctx.clearRect(0, 0, sc.width, sc.height);
+  if (!_sel) return;
+  const x = Math.min(_sel.x1, _sel.x2), y = Math.min(_sel.y1, _sel.y2);
+  const w = Math.abs(_sel.x2 - _sel.x1), h = Math.abs(_sel.y2 - _sel.y1);
+  // Dim outside
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.fillRect(0, 0, sc.width, sc.height);
+  ctx.clearRect(x, y, w, h);
+  // Border
+  ctx.strokeStyle = '#00e5a0';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+  // Rule-of-thirds grid
+  ctx.strokeStyle = 'rgba(0,229,160,.25)';
+  ctx.lineWidth = .5;
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath(); ctx.moveTo(x + w*i/3, y); ctx.lineTo(x + w*i/3, y+h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y + h*i/3); ctx.lineTo(x+w, y + h*i/3); ctx.stroke();
+  }
+  // Corner handles
+  const hs = 10;
+  ctx.fillStyle = '#00e5a0';
+  [[x,y],[x+w-hs,y],[x,y+h-hs],[x+w-hs,y+h-hs]].forEach(([cx,cy]) => ctx.fillRect(cx,cy,hs,hs));
+}
+
+function rotateImage(deg) {
+  _rotation = (_rotation + deg + 360) % 360;
+  _sel = null;
+  document.getElementById('cropConfirm').disabled = true;
+  initCropCanvas();
+}
+
+function resetCrop() {
+  _sel = null;
+  document.getElementById('cropConfirm').disabled = true;
+  drawSel();
+}
+
+function closeCropEditor() {
+  document.getElementById('cropOv').classList.remove('open');
+  _srcImg = null; _sel = null; _rotation = 0;
+}
+
+function confirmCrop() {
+  if (!_sel || !getGeminiKey()) {
+    if (!getGeminiKey()) { setStatus('err', 'Add your Gemini API key first'); document.getElementById('geminiBox').open = true; }
+    closeCropEditor(); return;
+  }
+  const x = Math.round(Math.min(_sel.x1, _sel.x2));
+  const y = Math.round(Math.min(_sel.y1, _sel.y2));
+  const w = Math.round(Math.abs(_sel.x2 - _sel.x1));
+  const h = Math.round(Math.abs(_sel.y2 - _sel.y1));
+  // Render cropped region from the already-rotated photo canvas
+  const pc = document.getElementById('cropPhotoCanvas');
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  out.getContext('2d').drawImage(pc, x, y, w, h, 0, 0, w, h);
+  const dataUrl = out.toDataURL('image/jpeg', 0.92);
+  closeCropEditor();
   setStatus('loading', 'Reading your scale…');
-  const r = new FileReader();
-  r.onload = ev => readWithGemini(ev.target.result);
-  r.readAsDataURL(f);
+  readWithGemini(dataUrl);
 }
 
 async function readWithGemini(dataUrl) {
@@ -669,6 +829,13 @@ function expJSON() {
 
 // ── Charts ────────────────────────────────────────────────────────────
 let lInst = null, cInst = null;
+const metColors = {
+  weight:   { line: '#00e5a0', fill: 'rgba(0,229,160,.07)',   point: '#00e5a0' },
+  bmi:      { line: '#4d9fff', fill: 'rgba(77,159,255,.07)',  point: '#4d9fff' },
+  fat:      { line: '#ff5c6c', fill: 'rgba(255,92,108,.07)',  point: '#ff5c6c' },
+  muscle:   { line: '#ffb340', fill: 'rgba(255,179,64,.07)',  point: '#ffb340' },
+  moisture: { line: '#b07cff', fill: 'rgba(176,124,255,.07)', point: '#b07cff' },
+};
 function renderCharts() {
   const arr = load(), met = document.getElementById('cMet').value;
   const keyMap = { weight: 'weight', bmi: 'bmi', fat: 'fat', muscle: 'muscle', moisture: 'moisture' };
@@ -680,10 +847,9 @@ function renderCharts() {
   lInst = new Chart(document.getElementById('lChart'), {
     type: 'line',
     data: { datasets: [{ data: fl.map(e => ({ x: new Date(e.date + 'T12:00:00'), y: e[keyMap[met]] })),
-      borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,.06)',
-      borderWidth: 2, pointRadius: fl.length > 30 ? 2 : 4,
-      pointHoverRadius: 6, pointHitRadius: 10,
-      pointBackgroundColor: '#00e5a0', pointBorderColor: '#0d0f14', pointBorderWidth: 2,
+      borderColor: metColors[met].line, backgroundColor: metColors[met].fill,
+      borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
+      pointBackgroundColor: metColors[met].point, pointBorderColor: '#0d0f14', pointBorderWidth: 2,
       fill: true, tension: .4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
