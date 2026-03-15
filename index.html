@@ -347,6 +347,10 @@ select {
 
       <!-- Status -->
       <div id="stEl" class="st"></div>
+      <div id="cropPreviewWrap" style="display:none;margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);background:var(--card);">
+        <div style="padding:8px 12px 6px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;">Cropped image sent to Gemini</div>
+        <img id="cropPreviewImg" style="width:100%;display:block;max-height:180px;object-fit:contain;background:#000;">
+      </div>
 
       <!-- Form -->
       <div class="fl">Measurements</div>
@@ -667,6 +671,10 @@ function confirmCrop() {
   out.getContext('2d').drawImage(pc, x, y, w, h, 0, 0, w, h);
   const dataUrl = out.toDataURL('image/jpeg', 0.92);
   closeCropEditor();
+  // Show preview immediately — stays visible regardless of Gemini result
+  const previewWrap = document.getElementById('cropPreviewWrap');
+  document.getElementById('cropPreviewImg').src = dataUrl;
+  previewWrap.style.display = 'block';
   setStatus('loading', 'Reading your scale…');
   readWithGemini(dataUrl);
 }
@@ -743,7 +751,9 @@ function saveEntry() {
   ['fW', 'fFat', 'fMus', 'fMoi', 'fBon'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fBmi').value = '';
   document.getElementById('fDate').value = nowDT();
-  clearStatus(); updSub(); toast('Entry saved!');
+  clearStatus();
+  document.getElementById('cropPreviewWrap').style.display = 'none';
+  updSub(); toast('Entry saved!');
 }
 
 // ── History ───────────────────────────────────────────────────────────
