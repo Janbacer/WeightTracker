@@ -348,8 +348,9 @@ select {
       <!-- Status -->
       <div id="stEl" class="st"></div>
       <div id="cropPreviewWrap" style="display:none;margin-bottom:12px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);background:var(--card);">
-        <div style="padding:8px 12px 6px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;">Cropped image sent to Gemini</div>
+        <div style="padding:8px 12px 6px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;">Image sent to Gemini</div>
         <img id="cropPreviewImg" style="width:100%;display:block;max-height:180px;object-fit:contain;background:#000;">
+        <div id="cropPreviewDate" style="padding:6px 12px 10px;font-size:12px;color:var(--text2);"></div>
       </div>
 
       <!-- Form -->
@@ -424,7 +425,10 @@ select {
   <div class="crop-bar">
     <button id="cropCancel" onclick="closeCropEditor()">Cancel</button>
     <span style="font-size:13px;color:var(--text2);font-weight:500;">Crop &amp; rotate</span>
-    <button id="cropConfirm" onclick="confirmCrop()" disabled>Send to Gemini</button>
+    <div style="display:flex;gap:6px;">
+      <button id="cropFull" onclick="sendFullImage()" style="font-size:12px;font-weight:600;font-family:'Outfit',sans-serif;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;padding:6px 10px;border-radius:7px;">Full</button>
+      <button id="cropConfirm" onclick="confirmCrop()" disabled>Send crop</button>
+    </div>
   </div>
   <div class="crop-canvas-wrap" id="cropWrap">
     <canvas id="cropPhotoCanvas"></canvas>
@@ -526,10 +530,11 @@ function setGeminiStatus(isSet) {
 }
 
 // ── Crop Editor ───────────────────────────────────────────────────────
-let _srcImg = null, _rotation = 0, _sel = null, _drag = false, _layout = {};
+let _srcImg = null, _rotation = 0, _sel = null, _drag = false, _layout = {}, _photoDate = null;
 
 function openCropEditor(e) {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  _photoDate = new Date(f.lastModified);
   const r = new FileReader();
   r.onload = ev => {
     const img = new Image();
@@ -655,6 +660,39 @@ function closeCropEditor() {
   _srcImg = null; _sel = null; _rotation = 0;
 }
 
+function showPreview(dataUrl) {
+  const previewWrap = document.getElementById('cropPreviewWrap');
+  document.getElementById('cropPreviewImg').src = dataUrl;
+  const dateEl = document.getElementById('cropPreviewDate');
+  if (_photoDate) {
+    dateEl.textContent = 'Taken ' + _photoDate.toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } else {
+    dateEl.textContent = '';
+  }
+  previewWrap.style.display = 'block';
+}
+
+function sendFullImage() {
+  if (!getGeminiKey()) {
+    setStatus('err', 'Add your Gemini API key first');
+    document.getElementById('geminiBox').open = true;
+    closeCropEditor(); return;
+  }
+  // Render the full (possibly rotated) image to a canvas
+  const pc = document.getElementById('cropPhotoCanvas');
+  const out = document.createElement('canvas');
+  out.width = pc.width; out.height = pc.height;
+  out.getContext('2d').drawImage(pc, 0, 0);
+  const dataUrl = out.toDataURL('image/jpeg', 0.92);
+  closeCropEditor();
+  showPreview(dataUrl);
+  setStatus('loading', 'Reading your scale…');
+  readWithGemini(dataUrl);
+}
+
 function confirmCrop() {
   if (!_sel || !getGeminiKey()) {
     if (!getGeminiKey()) { setStatus('err', 'Add your Gemini API key first'); document.getElementById('geminiBox').open = true; }
@@ -664,17 +702,13 @@ function confirmCrop() {
   const y = Math.round(Math.min(_sel.y1, _sel.y2));
   const w = Math.round(Math.abs(_sel.x2 - _sel.x1));
   const h = Math.round(Math.abs(_sel.y2 - _sel.y1));
-  // Render cropped region from the already-rotated photo canvas
   const pc = document.getElementById('cropPhotoCanvas');
   const out = document.createElement('canvas');
   out.width = w; out.height = h;
   out.getContext('2d').drawImage(pc, x, y, w, h, 0, 0, w, h);
   const dataUrl = out.toDataURL('image/jpeg', 0.92);
   closeCropEditor();
-  // Show preview immediately — stays visible regardless of Gemini result
-  const previewWrap = document.getElementById('cropPreviewWrap');
-  document.getElementById('cropPreviewImg').src = dataUrl;
-  previewWrap.style.display = 'block';
+  showPreview(dataUrl);
   setStatus('loading', 'Reading your scale…');
   readWithGemini(dataUrl);
 }
