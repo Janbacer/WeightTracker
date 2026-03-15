@@ -3,217 +3,351 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#0d0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Weight">
 <title>Weight Tracker</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #ffffff;
-    --bg2: #f5f5f5;
-    --bg3: #eeeeee;
-    --text: #111111;
-    --text2: #666666;
-    --text3: #999999;
-    --border: rgba(0,0,0,0.1);
-    --border2: rgba(0,0,0,0.18);
-    --blue: #2563eb;
-    --green: #16a34a;
-    --red: #dc2626;
-    --radius: 12px;
-    --radius-sm: 8px;
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #111111;
-      --bg2: #1e1e1e;
-      --bg3: #2a2a2a;
-      --text: #f0f0f0;
-      --text2: #aaaaaa;
-      --text3: #666666;
-      --border: rgba(255,255,255,0.1);
-      --border2: rgba(255,255,255,0.18);
-    }
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+:root {
+  --bg:     #0d0f14;
+  --bg2:    #161920;
+  --bg3:    #1e2230;
+  --card:   #1a1d27;
+  --border: rgba(255,255,255,.07);
+  --border2:rgba(255,255,255,.12);
+  --text:   #eef0f6;
+  --text2:  #7a7f96;
+  --text3:  #454a60;
+  --mint:   #00e5a0;
+  --mint2:  #00c488;
+  --red:    #ff5c6c;
+  --amber:  #ffb340;
+  --blue:   #4d9fff;
+  --glow:   0 0 24px rgba(0,229,160,.15);
+  --r:      14px;
+  --rs:     10px;
+  --sb:     env(safe-area-inset-bottom,0px);
+}
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; }
 
-  #app { display: flex; flex-direction: column; height: 100%; max-width: 480px; margin: 0 auto; }
+/* ── Layout ────────────────────────────────────────────────────────── */
+#app { display:flex; flex-direction:column; height:100%; max-width:480px; margin:0 auto; }
 
-  /* Header */
-  .header { padding: 16px 20px 0; padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
-  .header h1 { font-size: 22px; font-weight: 600; }
-  .header p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+/* ── Header ─────────────────────────────────────────────────────────── */
+.hdr {
+  padding: 20px 22px 0;
+  padding-top: calc(20px + env(safe-area-inset-top,0px));
+  display: flex; justify-content:space-between; align-items:flex-start;
+}
+.hdr-left h1 { font-size:24px; font-weight:700; letter-spacing:-.5px; }
+.hdr-left p  { font-size:13px; color:var(--text2); margin-top:3px; font-weight:300; }
 
-  /* Tab bar */
-  .tabbar { display: flex; border-bottom: 0.5px solid var(--border); margin: 12px 20px 0; }
-  .tabbar button { flex: 1; padding: 10px 0; background: none; border: none; border-bottom: 2.5px solid transparent; color: var(--text2); font-size: 14px; cursor: pointer; margin-bottom: -0.5px; transition: color 0.15s; }
-  .tabbar button.active { border-bottom-color: var(--text); color: var(--text); font-weight: 500; }
 
-  /* Content area */
-  .content { flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: calc(20px + var(--safe-bottom)); }
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+.tabs {
+  display:flex; gap:4px;
+  margin:16px 22px 0;
+  background:var(--bg2);
+  border-radius:var(--rs); padding:4px;
+}
+.tabs button {
+  flex:1; padding:8px 0; background:none; border:none;
+  color:var(--text2); font-size:13px; font-weight:500;
+  font-family:'Outfit',sans-serif; cursor:pointer;
+  border-radius:7px; transition:all .2s;
+}
+.tabs button.on {
+  background:var(--bg3); color:var(--text);
+  box-shadow:0 1px 4px rgba(0,0,0,.4);
+}
 
-  /* Screens */
-  .screen { display: none; }
-  .screen.active { display: block; }
+/* ── Content ─────────────────────────────────────────────────────────── */
+.cnt { flex:1; overflow-y:auto; padding:16px 22px; padding-bottom:calc(24px + var(--sb)); }
+.scr { display:none; } .scr.on { display:block; }
 
-  /* Upload area */
-  .upload-area { border: 1.5px dashed var(--border2); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; background: var(--bg2); position: relative; }
-  .upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
-  .upload-icon { font-size: 36px; margin-bottom: 8px; }
-  .upload-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-  .upload-sub { font-size: 12px; color: var(--text2); }
+/* ── Height bar ──────────────────────────────────────────────────────── */
+.ht-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:var(--rs); padding:11px 14px; margin-bottom:12px; font-size:13px;
+}
+.ht-bar span { color:var(--text2); }
+.ht-bar input {
+  width:60px; font-size:13px; padding:5px 8px;
+  border-radius:7px; border:1px solid var(--border2);
+  background:var(--bg3); color:var(--text); outline:none;
+  font-family:'Outfit',sans-serif; margin-right:8px; text-align:center;
+}
+.ht-bar button {
+  font-size:12px; font-weight:600; color:var(--mint);
+  background:none; border:none; cursor:pointer; font-family:'Outfit',sans-serif;
+}
 
-  /* Preview image */
-  #previewImg { width: 100%; border-radius: var(--radius-sm); margin: 12px 0 8px; max-height: 240px; object-fit: contain; display: none; background: var(--bg2); }
+/* ── Gemini key ──────────────────────────────────────────────────────── */
+.api-box {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:var(--rs); margin-bottom:12px; overflow:hidden;
+}
+.api-box summary {
+  padding:11px 14px; cursor:pointer; color:var(--text2);
+  font-size:13px; user-select:none; list-style:none;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.api-box summary::-webkit-details-marker { display:none; }
+.api-box .inner { padding:0 14px 14px; display:flex; flex-direction:column; gap:8px; }
+.api-box input {
+  font-size:13px; padding:9px 11px; border-radius:7px;
+  border:1px solid var(--border2); background:var(--bg3);
+  color:var(--text); width:100%; outline:none; font-family:monospace;
+}
+.api-box input:focus { border-color:var(--mint); }
+.api-box p { font-size:11px; color:var(--text3); line-height:1.6; }
 
-  /* Status */
-  .status { font-size: 13px; text-align: center; padding: 8px; border-radius: var(--radius-sm); margin-bottom: 8px; display: none; }
-  .status.loading { background: rgba(37,99,235,0.08); color: var(--blue); }
-  .status.success { background: rgba(22,163,74,0.08); color: var(--green); }
-  .status.error   { background: rgba(220,38,38,0.08); color: var(--red); }
+/* ── Photo button ────────────────────────────────────────────────────── */
+.photo-btn {
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  width:100%; padding:22px;
+  border:1.5px dashed rgba(0,229,160,.3);
+  border-radius:var(--r); background:rgba(0,229,160,.04);
+  cursor:pointer; margin-bottom:12px; position:relative;
+  transition:all .2s;
+}
+.photo-btn:active { background:rgba(0,229,160,.08); }
+.photo-btn input { position:absolute; inset:0; opacity:0; cursor:pointer; font-size:0; }
+.photo-btn-icon { font-size:28px; }
+.photo-btn-text { display:flex; flex-direction:column; gap:2px; }
+.photo-btn-text strong { font-size:15px; font-weight:600; color:var(--text); }
+.photo-btn-text span { font-size:12px; color:var(--text2); font-weight:300; }
 
-  /* Form */
-  .form-section { margin-top: 16px; }
-  .form-section-label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .form-group { display: flex; flex-direction: column; gap: 5px; }
-  .form-group label { font-size: 12px; color: var(--text2); }
-  .form-group input { font-size: 15px; padding: 9px 11px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); width: 100%; outline: none; }
-  .form-group input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-  .form-full { margin-bottom: 8px; }
+/* ── Status ──────────────────────────────────────────────────────────── */
+.st {
+  font-size:13px; text-align:center; padding:10px 14px;
+  border-radius:var(--rs); margin-bottom:12px; display:none; font-weight:400;
+}
+.st.loading { background:rgba(77,159,255,.1); color:var(--blue); border:1px solid rgba(77,159,255,.2); }
+.st.ok  { background:rgba(0,229,160,.08); color:var(--mint); border:1px solid rgba(0,229,160,.2); }
+.st.err { background:rgba(255,92,108,.08); color:var(--red); border:1px solid rgba(255,92,108,.2); }
 
-  /* Buttons */
-  .btn-primary { width: 100%; padding: 13px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 12px; transition: opacity 0.15s; }
-  .btn-primary:active { opacity: 0.7; }
-  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+/* ── Section label ───────────────────────────────────────────────────── */
+.fl {
+  font-size:11px; font-weight:600; color:var(--text3);
+  text-transform:uppercase; letter-spacing:.1em; margin:16px 0 10px;
+}
 
-  /* API key section */
-  .apikey-box { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 14px; }
-  .apikey-box summary { font-size: 13px; color: var(--text2); cursor: pointer; user-select: none; }
-  .apikey-box .inner { margin-top: 10px; }
-  .apikey-box input { font-size: 13px; padding: 8px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); width: 100%; outline: none; font-family: monospace; }
-  .apikey-box p { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+/* ── Form ────────────────────────────────────────────────────────────── */
+.fr { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+.fg { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
+.fg label { font-size:11px; font-weight:500; color:var(--text2); letter-spacing:.03em; text-transform:uppercase; }
+.fg input, .fr .fg input {
+  font-size:16px; font-weight:500; padding:11px 13px;
+  border-radius:var(--rs); border:1px solid var(--border);
+  background:var(--card); color:var(--text); width:100%; outline:none;
+  font-family:'Outfit',sans-serif; transition:border-color .15s, box-shadow .15s;
+}
+.fg input:focus { border-color:var(--mint); box-shadow:0 0 0 3px rgba(0,229,160,.1); }
+.fg input[readonly] { color:var(--text2); background:var(--bg2); border-color:var(--border); }
+.fg input::placeholder { color:var(--text3); font-weight:300; }
 
-  /* Metric cards */
-  .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-bottom: 20px; }
-  .metric-card { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px 10px; }
-  .metric-card .m-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
-  .metric-card .m-value { font-size: 19px; font-weight: 600; line-height: 1; }
-  .metric-card .m-unit { font-size: 11px; font-weight: 400; color: var(--text2); }
-  .metric-card .m-delta { font-size: 11px; margin-top: 4px; }
-  .delta-up   { color: var(--red); }
-  .delta-down { color: var(--green); }
-  .delta-neu  { color: var(--text3); }
+/* ── Save button ─────────────────────────────────────────────────────── */
+.btn {
+  width:100%; padding:15px;
+  background:linear-gradient(135deg,var(--mint),var(--mint2));
+  color:#0a1a12; border:none; border-radius:var(--rs);
+  font-size:15px; font-weight:700; cursor:pointer;
+  font-family:'Outfit',sans-serif; margin-top:6px;
+  transition:opacity .15s, transform .1s;
+  letter-spacing:.01em;
+}
+.btn:active { opacity:.85; transform:scale(.98); }
 
-  /* Entry list */
-  .section-label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-  .entry-list { display: flex; flex-direction: column; gap: 6px; }
-  .entry-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg2); border-radius: var(--radius-sm); }
-  .entry-date { font-size: 14px; font-weight: 500; }
-  .entry-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .entry-weight { font-size: 18px; font-weight: 600; text-align: right; }
-  .entry-bmi { font-size: 11px; color: var(--text2); text-align: right; margin-top: 2px; }
-  .entry-delete { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; padding: 4px 0 4px 12px; }
+/* ── Metric cards ────────────────────────────────────────────────────── */
+.mg { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:20px; }
+.mc {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:var(--rs); padding:14px 12px;
+  transition:border-color .2s;
+}
+.mc.primary { border-color:rgba(0,229,160,.25); box-shadow:var(--glow); }
+.mc .ml { font-size:10px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.mc .mv { font-size:20px; font-weight:700; line-height:1; color:var(--text); }
+.mc .mu { font-size:11px; font-weight:400; color:var(--text2); }
+.mc .md { font-size:11px; margin-top:5px; font-weight:500; }
+.up { color:var(--red); } .dn2 { color:var(--mint); } .neu { color:var(--text3); }
 
-  /* Charts */
-  .chart-select-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .chart-select-row label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
-  select { font-size: 13px; padding: 5px 8px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); outline: none; }
-  .chart-wrap { position: relative; width: 100%; height: 220px; margin-bottom: 24px; }
-  .comp-wrap { position: relative; width: 100%; height: 160px; margin-bottom: 16px; }
+/* ── Entry list ──────────────────────────────────────────────────────── */
+.hist-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.hist-hdr .sl { margin:0; }
+.hist-actions { display:flex; gap:14px; align-items:center; }
+.sl { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.1em; margin-bottom:10px; }
+.el { display:flex; flex-direction:column; gap:8px; }
+.er {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 16px; background:var(--card); border:1px solid var(--border);
+  border-radius:var(--rs); transition:border-color .15s;
+}
+.er:hover { border-color:var(--border2); }
+.ed { font-size:14px; font-weight:600; }
+.et { font-size:11px; color:var(--text3); font-weight:400; margin-left:5px; }
+.em { font-size:11px; color:var(--text2); margin-top:3px; font-weight:300; }
+.ew { font-size:19px; font-weight:700; text-align:right; color:var(--text); }
+.eb { font-size:11px; color:var(--text2); text-align:right; margin-top:2px; }
+.ex { background:none; border:none; color:var(--text3); font-size:20px; cursor:pointer; padding:4px 0 4px 12px; line-height:1; transition:color .15s; }
+.ex:hover { color:var(--red); }
 
-  /* Empty */
-  .empty { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 14px; line-height: 1.7; }
-  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+/* ── Charts ──────────────────────────────────────────────────────────── */
+.csr { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.csr label { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.1em; }
+select {
+  font-size:13px; font-weight:500; padding:6px 10px;
+  border-radius:7px; border:1px solid var(--border2);
+  background:var(--card); color:var(--text); outline:none;
+  font-family:'Outfit',sans-serif; cursor:pointer;
+}
+.cw { position:relative; width:100%; height:220px; margin-bottom:28px; }
+.cpw { position:relative; width:100%; height:160px; margin-bottom:16px; }
+.comp-hdr { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
 
-  /* Toast */
-  #toast { position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 20px; font-size: 13px; opacity: 0; transition: all 0.2s; pointer-events: none; white-space: nowrap; z-index: 100; }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ── Empty state ─────────────────────────────────────────────────────── */
+.emp { text-align:center; padding:48px 20px; color:var(--text3); font-size:14px; line-height:1.8; }
+.emp-icon { font-size:44px; margin-bottom:14px; opacity:.6; }
 
-  /* Spinner */
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* ── Toast ───────────────────────────────────────────────────────────── */
+#toast {
+  position:fixed; bottom:calc(28px + var(--sb)); left:50%;
+  transform:translateX(-50%) translateY(16px);
+  background:var(--bg3); color:var(--text); border:1px solid var(--border2);
+  padding:11px 22px; border-radius:20px; font-size:13px; font-weight:500;
+  opacity:0; transition:all .22s; pointer-events:none; white-space:nowrap; z-index:300;
+  backdrop-filter:blur(12px);
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── Spinner ─────────────────────────────────────────────────────────── */
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin { display:inline-block; width:12px; height:12px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+
+/* ── Fade-in on tab switch ───────────────────────────────────────────── */
+@keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.scr.on { animation:fadeUp .18s ease; }
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="header">
-    <h1>Weight Tracker</h1>
-    <p id="headerSub">Log your measurements</p>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>Weight</h1>
+      <p id="hSub">Loading…</p>
+    </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;margin-left:12px;">
+        <div style="font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--text);line-height:1;">Jan Balayla</div>
+        <div style="width:100%;height:1.5px;background:linear-gradient(90deg,transparent,#8b1a1a,#c0392b);margin-top:3px;border-radius:2px;"></div>
+      </div>
   </div>
 
-  <div class="tabbar">
-    <button class="active" onclick="showTab('log', this)">Log</button>
-    <button onclick="showTab('history', this)">History</button>
-    <button onclick="showTab('charts', this)">Charts</button>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="on" onclick="showTab('log',this)">Log</button>
+    <button onclick="showTab('hist',this)">History</button>
+    <button onclick="showTab('chrt',this)">Charts</button>
   </div>
 
-  <div class="content">
+  <div class="cnt">
 
-    <!-- LOG TAB -->
-    <div id="tab-log" class="screen active">
+    <!-- ── LOG TAB ── -->
+    <div id="tab-log" class="scr on">
 
-      <details class="apikey-box">
-        <summary>API key (needed for photo reading)</summary>
+      <!-- Height -->
+      <div class="ht-bar">
+        <span id="htLbl">Set height for auto BMI</span>
+        <div>
+          <input type="number" id="htIn" step="1" inputmode="numeric" placeholder="cm">
+          <button onclick="saveHt()">Save</button>
+        </div>
+      </div>
+
+      <!-- Gemini key -->
+      <details class="api-box" id="geminiBox">
+        <summary>
+          <span>Gemini API key</span>
+          <span id="geminiStatus" style="font-size:11px;font-weight:600;color:var(--text3);">not set</span>
+        </summary>
         <div class="inner">
-          <input type="password" id="apiKeyInput" placeholder="sk-ant-..." oninput="saveApiKey(this.value)">
-          <p>Your key is stored only on this device. Get one free at console.anthropic.com — you get $5 credit to start which is thousands of photo reads.</p>
+          <input type="password" id="geminiKeyInput" placeholder="AIza…" oninput="saveGeminiKey(this.value)">
+          <p>Free at <strong style="color:var(--text2);">aistudio.google.com</strong> → Get API key. 20 reads/day, no credit card needed.</p>
         </div>
       </details>
 
-      <div class="upload-area" id="uploadArea">
-        <input type="file" id="imgInput" accept="image/*" capture="environment" onchange="handleImage(event)">
-        <div class="upload-icon">📷</div>
-        <div class="upload-title">Take a photo of your scale</div>
-        <div class="upload-sub">AI reads the numbers automatically</div>
+      <!-- Photo -->
+      <div class="photo-btn">
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+        <div class="photo-btn-icon">📷</div>
+        <div class="photo-btn-text">
+          <strong>Scan scale</strong>
+          <span>Gemini reads all values automatically</span>
+        </div>
       </div>
 
-      <img id="previewImg" alt="Scale preview">
+      <!-- Status -->
+      <div id="stEl" class="st"></div>
 
-      <div id="readStatus" class="status"></div>
-
-      <div class="form-section">
-        <div class="form-section-label">Measurements</div>
-
-        <div class="form-full form-group">
-          <label>Date</label>
-          <input type="date" id="f-date">
-        </div>
-
-        <div class="form-row">
-          <div class="form-group"><label>Weight (kg)</label><input type="number" id="f-weight" step="0.1" inputmode="decimal" placeholder="—"></div>
-          <div class="form-group"><label>BMI</label><input type="number" id="f-bmi" step="0.1" inputmode="decimal" placeholder="—"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Body fat %</label><input type="number" id="f-fat" step="0.1" inputmode="decimal" placeholder="—"></div>
-          <div class="form-group"><label>Muscle %</label><input type="number" id="f-muscle" step="0.1" inputmode="decimal" placeholder="—"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Moisture %</label><input type="number" id="f-moisture" step="0.1" inputmode="decimal" placeholder="—"></div>
-          <div class="form-group"><label>Bone mass (kg)</label><input type="number" id="f-bone" step="0.01" inputmode="decimal" placeholder="—"></div>
-        </div>
-
-        <button class="btn-primary" id="saveBtn" onclick="saveEntry()">Save entry</button>
+      <!-- Form -->
+      <div class="fl">Measurements</div>
+      <div class="fg">
+        <label>Date &amp; time</label>
+        <input type="datetime-local" id="fDate">
       </div>
+      <div class="fr">
+        <div class="fg">
+          <label>Weight (kg)</label>
+          <input type="number" id="fW" step="0.1" inputmode="decimal" placeholder="—" oninput="updBmi()">
+        </div>
+        <div class="fg">
+          <label>BMI — auto</label>
+          <input type="text" id="fBmi" readonly placeholder="—">
+        </div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Body fat %</label><input type="number" id="fFat" step="0.1" inputmode="decimal" placeholder="—"></div>
+        <div class="fg"><label>Muscle %</label><input type="number" id="fMus" step="0.1" inputmode="decimal" placeholder="—"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Moisture %</label><input type="number" id="fMoi" step="0.1" inputmode="decimal" placeholder="—"></div>
+        <div class="fg"><label>Bone mass (kg)</label><input type="number" id="fBon" step="0.01" inputmode="decimal" placeholder="—"></div>
+      </div>
+      <button class="btn" onclick="saveEntry()">Save entry</button>
     </div>
 
-    <!-- HISTORY TAB -->
-    <div id="tab-history" class="screen">
-      <div id="summaryCards" class="metric-grid"></div>
-      <div class="section-label">All entries</div>
-      <div id="entryList" class="entry-list"></div>
+    <!-- ── HISTORY TAB ── -->
+    <div id="tab-hist" class="scr">
+      <div id="sMg" class="mg"></div>
+      <div class="hist-hdr">
+        <div class="sl">All entries</div>
+        <div class="hist-actions">
+          <label style="font-size:12px;color:var(--mint);cursor:pointer;font-weight:500;position:relative;">
+            Import
+            <input type="file" accept=".json" onchange="impJSON(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;">
+          </label>
+          <button onclick="expJSON()" style="font-size:12px;color:var(--text2);background:none;border:none;cursor:pointer;font-family:'Outfit',sans-serif;">Export</button>
+          <button onclick="deleteAll()" style="font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Outfit',sans-serif;">Delete all</button>
+        </div>
+      </div>
+      <div id="eList" class="el"></div>
     </div>
 
-    <!-- CHARTS TAB -->
-    <div id="tab-charts" class="screen">
-      <div class="chart-select-row">
-        <label>Trend</label>
-        <select id="chartMetric" onchange="renderCharts()">
+    <!-- ── CHARTS TAB ── -->
+    <div id="tab-chrt" class="scr">
+      <div class="csr">
+        <label>Metric</label>
+        <select id="cMet" onchange="renderCharts()">
           <option value="weight">Weight (kg)</option>
           <option value="bmi">BMI</option>
           <option value="fat">Body fat %</option>
@@ -221,10 +355,12 @@
           <option value="moisture">Moisture %</option>
         </select>
       </div>
-      <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
-
-      <div class="section-label">Latest composition</div>
-      <div class="comp-wrap"><canvas id="compChart"></canvas></div>
+      <div class="cw"><canvas id="lChart"></canvas></div>
+      <div class="comp-hdr">
+        <div class="sl" style="margin:0">Composition</div>
+        <div id="compDate" style="font-size:11px;color:var(--text3);font-weight:500;"></div>
+      </div>
+      <div class="cpw"><canvas id="cChart"></canvas></div>
     </div>
 
   </div>
@@ -233,315 +369,308 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script>
 // ── Storage ───────────────────────────────────────────────────────────
-const STORE_KEY   = 'wt_entries_v1';
-const APIKEY_KEY  = 'wt_apikey';
-
-function loadEntries() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
-}
-function saveEntries(arr) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(arr));
-}
-function getApiKey() { return localStorage.getItem(APIKEY_KEY) || ''; }
-function saveApiKey(v) { localStorage.setItem(APIKEY_KEY, v.trim()); }
+const SK = 'wt_v1', HK = 'wt_ht', GK = 'wt_gemini';
+const load = () => { try { return JSON.parse(localStorage.getItem(SK) || '[]'); } catch { return []; } };
+const save = a => localStorage.setItem(SK, JSON.stringify(a));
+const getHt = () => parseFloat(localStorage.getItem(HK)) || null;
+const getGeminiKey = () => localStorage.getItem(GK) || '';
 
 // ── Init ──────────────────────────────────────────────────────────────
-document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
-const savedKey = getApiKey();
-if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
-updateHeaderSub();
+document.getElementById('fDate').value = nowDT();
+updHtBar(); updBmi(); updSub();
+const _k = getGeminiKey();
+if (_k) { document.getElementById('geminiKeyInput').value = _k; setGeminiStatus(true); }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+// ── Helpers ───────────────────────────────────────────────────────────
+function nowDT() {
+  const n = new Date(), p = x => String(x).padStart(2, '0');
+  return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}T${p(n.getHours())}:${p(n.getMinutes())}`;
+}
+function toast(m) {
+  const e = document.getElementById('toast');
+  e.textContent = m; e.classList.add('show');
+  setTimeout(() => e.classList.remove('show'), 2200);
+}
+function setStatus(type, msg) {
+  const e = document.getElementById('stEl');
+  e.className = 'st ' + type;
+  e.innerHTML = type === 'loading' ? `<span class="spin"></span>${msg}` : msg;
+  e.style.display = 'block';
+}
+function clearStatus() { document.getElementById('stEl').style.display = 'none'; }
+function fmtDate(d) {
+  return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────
-function showTab(name, btn) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  btn.classList.add('active');
-  if (name === 'history') renderHistory();
-  if (name === 'charts')  renderCharts();
+function showTab(id, btn) {
+  document.querySelectorAll('.scr').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+  document.getElementById('tab-' + id).classList.add('on');
+  btn.classList.add('on');
+  if (id === 'hist') renderHist();
+  if (id === 'chrt') renderCharts();
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2200);
+// ── Header subtitle ───────────────────────────────────────────────────
+function updSub() {
+  const arr = load(), s = document.getElementById('hSub');
+  if (!arr.length) { s.textContent = 'No entries yet'; return; }
+  const l = arr[arr.length - 1];
+  s.textContent = l.weight ? `Last weigh-in: ${l.weight.toFixed(1)} kg` : `Last entry: ${l.date}`;
 }
 
-// ── Header sub ────────────────────────────────────────────────────────
-function updateHeaderSub() {
-  const entries = loadEntries();
-  const sub = document.getElementById('headerSub');
-  if (!entries.length) { sub.textContent = 'No entries yet'; return; }
-  const latest = entries[entries.length-1];
-  sub.textContent = latest.weight ? `Last: ${latest.weight.toFixed(1)} kg on ${latest.date}` : `Last entry: ${latest.date}`;
+// ── Height / BMI ──────────────────────────────────────────────────────
+function saveHt() {
+  const v = parseFloat(document.getElementById('htIn').value);
+  if (!v || v < 50 || v > 250) { toast('Enter a valid height (cm)'); return; }
+  localStorage.setItem(HK, v);
+  updHtBar(); updBmi(); toast('Height saved');
+}
+function updHtBar() {
+  const h = getHt();
+  document.getElementById('htLbl').textContent = h ? `Height: ${h} cm` : 'Set height for auto BMI';
+  if (h) document.getElementById('htIn').value = h;
+}
+function updBmi() {
+  const w = parseFloat(document.getElementById('fW').value), h = getHt();
+  const el = document.getElementById('fBmi');
+  el.value = (w && h) ? (w / ((h / 100) ** 2)).toFixed(1) : '';
+  el.placeholder = h ? '—' : 'set height';
 }
 
-// ── Image handling ────────────────────────────────────────────────────
-function handleImage(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = document.getElementById('previewImg');
-    img.src = ev.target.result;
-    img.style.display = 'block';
-    readScaleImage(ev.target.result);
-  };
-  reader.readAsDataURL(file);
+// ── Gemini key ────────────────────────────────────────────────────────
+function saveGeminiKey(v) {
+  localStorage.setItem(GK, v.trim());
+  setGeminiStatus(!!v.trim());
+}
+function setGeminiStatus(isSet) {
+  const el = document.getElementById('geminiStatus');
+  el.textContent = isSet ? '✓ set' : 'not set';
+  el.style.color = isSet ? 'var(--mint)' : 'var(--text3)';
 }
 
-function setStatus(type, html) {
-  const el = document.getElementById('readStatus');
-  el.className = 'status ' + type;
-  el.innerHTML = html;
-  el.style.display = 'block';
-}
-
-async function readScaleImage(dataUrl) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    setStatus('error', 'Add your API key above to enable photo reading — or fill in values manually');
+// ── Photo → Gemini ────────────────────────────────────────────────────
+function handlePhoto(e) {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  if (!getGeminiKey()) {
+    setStatus('err', 'Add your Gemini API key first');
+    document.getElementById('geminiBox').open = true;
     return;
   }
+  setStatus('loading', 'Reading your scale…');
+  const r = new FileReader();
+  r.onload = ev => readWithGemini(ev.target.result);
+  r.readAsDataURL(f);
+}
 
-  setStatus('loading', '<span class="spinner"></span>Reading scale display…');
+async function readWithGemini(dataUrl) {
+  const key = getGeminiKey();
+  const base64 = dataUrl.split(',')[1];
+  const mime = dataUrl.split(';')[0].split(':')[1];
+  const prompt = `You are reading a 7-segment display smart scale screen.
+Screen layout:
+- TOP LEFT: body fat %
+- BOTTOM LEFT: muscle %
+- TOP RIGHT: moisture (body water) %
+- CENTER LARGE: weight in kg
+- May also show bone mass in kg
 
-  const base64    = dataUrl.split(',')[1];
-  const mediaType = dataUrl.split(';')[0].split(':')[1];
-
+Return ONLY a JSON object — no extra text, no markdown — with these keys (number or null):
+{"weight":null,"body_fat_rate":null,"muscle_rate":null,"moisture_rate":null,"bone_mass":null}`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-6',
-        max_tokens: 400,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-            { type: 'text', text: 'This is a smart scale display. Extract all visible measurements. Return ONLY a JSON object with keys: weight (kg, number), bmi (number), body_fat_rate (%, number), muscle_rate (%, number), moisture_rate (%, number), bone_mass (kg, number). Use null for any value not visible. Example: {"weight":72.3,"bmi":22.1,"body_fat_rate":18.5,"muscle_rate":45.2,"moisture_rate":58.3,"bone_mass":2.8}' }
-          ]
-        }]
-      })
-    });
-
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [
+          { inline_data: { mime_type: mime, data: base64 } },
+          { text: prompt }
+        ]}]})
+      }
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error?.message || `HTTP ${res.status}`);
     }
-
     const data = await res.json();
-    const text = data.content.map(c => c.text || '').join('');
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const match = text.match(/\{[\s\S]*?\}/);
-    if (!match) throw new Error('No values found in response');
-
+    if (!match) throw new Error('No JSON in response');
     const vals = JSON.parse(match[0]);
-    const fieldMap = {
-      weight: 'f-weight', bmi: 'f-bmi',
-      body_fat_rate: 'f-fat', muscle_rate: 'f-muscle',
-      moisture_rate: 'f-moisture', bone_mass: 'f-bone'
-    };
+    const fields = { weight: 'fW', body_fat_rate: 'fFat', muscle_rate: 'fMus', moisture_rate: 'fMoi', bone_mass: 'fBon' };
     let filled = 0;
-    for (const [key, id] of Object.entries(fieldMap)) {
-      if (vals[key] != null) { document.getElementById(id).value = vals[key]; filled++; }
+    for (const [k, id] of Object.entries(fields)) {
+      if (vals[k] != null) { document.getElementById(id).value = parseFloat(vals[k]).toFixed(1); filled++; }
     }
-    setStatus('success', `Read ${filled} values — review and save`);
+    updBmi();
+    filled > 0
+      ? setStatus('ok', `Read ${filled} values — review and save`)
+      : setStatus('err', 'No values found — try a clearer photo');
   } catch (err) {
-    setStatus('error', `Could not read automatically: ${err.message}. Fill in values manually.`);
+    setStatus('err', err.message);
   }
 }
 
 // ── Save entry ────────────────────────────────────────────────────────
 function saveEntry() {
+  const dt = document.getElementById('fDate').value || nowDT();
+  const dk = dt.slice(0, 10);
+  const w = parseFloat(document.getElementById('fW').value) || null;
+  const h = getHt();
+  const bmi = (w && h) ? parseFloat((w / ((h / 100) ** 2)).toFixed(2)) : null;
   const entry = {
-    date:     document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
-    weight:   parseFloat(document.getElementById('f-weight').value)   || null,
-    bmi:      parseFloat(document.getElementById('f-bmi').value)      || null,
-    fat:      parseFloat(document.getElementById('f-fat').value)      || null,
-    muscle:   parseFloat(document.getElementById('f-muscle').value)   || null,
-    moisture: parseFloat(document.getElementById('f-moisture').value) || null,
-    bone:     parseFloat(document.getElementById('f-bone').value)     || null,
+    date: dk, datetime: dt, weight: w, bmi,
+    fat:      parseFloat(document.getElementById('fFat').value) || null,
+    muscle:   parseFloat(document.getElementById('fMus').value) || null,
+    moisture: parseFloat(document.getElementById('fMoi').value) || null,
+    bone:     parseFloat(document.getElementById('fBon').value) || null,
   };
-
-  if (!entry.weight && !entry.bmi) { toast('Enter at least weight or BMI'); return; }
-
-  const entries = loadEntries();
-  const idx = entries.findIndex(e => e.date === entry.date);
-  if (idx >= 0) entries[idx] = entry; else entries.push(entry);
-  entries.sort((a,b) => a.date.localeCompare(b.date));
-  saveEntries(entries);
-
-  ['f-weight','f-bmi','f-fat','f-muscle','f-moisture','f-bone'].forEach(id =>
-    document.getElementById(id).value = '');
-  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
-  document.getElementById('previewImg').style.display = 'none';
-  document.getElementById('readStatus').style.display = 'none';
-  document.getElementById('imgInput').value = '';
-
-  updateHeaderSub();
-  toast('Entry saved!');
+  if (!entry.weight) { toast('Enter weight'); return; }
+  const arr = load();
+  const idx = arr.findIndex(e => e.date === dk);
+  if (idx >= 0) arr[idx] = entry; else arr.push(entry);
+  arr.sort((a, b) => (a.datetime || a.date).localeCompare(b.datetime || b.date));
+  save(arr);
+  ['fW', 'fFat', 'fMus', 'fMoi', 'fBon'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fBmi').value = '';
+  document.getElementById('fDate').value = nowDT();
+  clearStatus(); updSub(); toast('Entry saved!');
 }
 
 // ── History ───────────────────────────────────────────────────────────
-function renderHistory() {
-  const entries = loadEntries();
-  const listEl  = document.getElementById('entryList');
-  const cardsEl = document.getElementById('summaryCards');
-
-  if (!entries.length) {
-    cardsEl.innerHTML = '';
-    listEl.innerHTML  = '<div class="empty"><div class="empty-icon">⚖️</div>No entries yet.<br>Log your first measurement.</div>';
+function renderHist() {
+  const arr = load();
+  const le = document.getElementById('eList'), mg = document.getElementById('sMg');
+  if (!arr.length) {
+    mg.innerHTML = '';
+    le.innerHTML = '<div class="emp"><div class="emp-icon">⚖️</div>No entries yet.<br>Log your first weigh-in.</div>';
     return;
   }
-
-  const latest = entries[entries.length - 1];
-  const prev   = entries.length > 1 ? entries[entries.length - 2] : null;
-
-  function delta(key, invert=false) {
-    if (!prev || latest[key] == null || prev[key] == null) return '';
-    const d = latest[key] - prev[key];
-    if (Math.abs(d) < 0.01) return `<div class="m-delta delta-neu">no change</div>`;
-    const sign  = d > 0 ? '+' : '';
-    const bad   = invert ? d < 0 : d > 0;
-    const cls   = bad ? 'delta-up' : 'delta-down';
-    return `<div class="m-delta ${cls}">${sign}${d.toFixed(1)}</div>`;
+  const l = arr[arr.length - 1], p = arr.length > 1 ? arr[arr.length - 2] : null;
+  function delta(k) {
+    if (!p || l[k] == null || p[k] == null) return '';
+    const d = l[k] - p[k];
+    if (Math.abs(d) < 0.01) return `<div class="md neu">no change</div>`;
+    return `<div class="md ${d > 0 ? 'up' : 'dn2'}">${d > 0 ? '+' : ''}${d.toFixed(1)}</div>`;
   }
-
-  cardsEl.innerHTML = `
-    <div class="metric-card">
-      <div class="m-label">Weight</div>
-      <div class="m-value">${latest.weight != null ? latest.weight.toFixed(1) : '—'}<span class="m-unit"> kg</span></div>
+  mg.innerHTML = `
+    <div class="mc primary">
+      <div class="ml">Weight</div>
+      <div class="mv">${l.weight != null ? l.weight.toFixed(1) : '—'}<span class="mu"> kg</span></div>
       ${delta('weight')}
     </div>
-    <div class="metric-card">
-      <div class="m-label">Body fat</div>
-      <div class="m-value">${latest.fat != null ? latest.fat.toFixed(1) : '—'}<span class="m-unit"> %</span></div>
+    <div class="mc">
+      <div class="ml">Body fat</div>
+      <div class="mv">${l.fat != null ? l.fat.toFixed(1) : '—'}<span class="mu"> %</span></div>
       ${delta('fat')}
     </div>
-    <div class="metric-card">
-      <div class="m-label">BMI</div>
-      <div class="m-value">${latest.bmi != null ? latest.bmi.toFixed(1) : '—'}</div>
+    <div class="mc">
+      <div class="ml">BMI</div>
+      <div class="mv">${l.bmi != null ? l.bmi.toFixed(1) : '—'}</div>
       ${delta('bmi')}
     </div>`;
-
-  listEl.innerHTML = [...entries].reverse().map(e => `
-    <div class="entry-row">
+  le.innerHTML = [...arr].reverse().map(e => `
+    <div class="er">
       <div>
-        <div class="entry-date">${formatDate(e.date)}</div>
-        <div class="entry-meta">${[
-          e.fat      != null ? `fat ${e.fat}%`      : '',
-          e.muscle   != null ? `muscle ${e.muscle}%`: '',
-          e.moisture != null ? `moisture ${e.moisture}%` : ''
-        ].filter(Boolean).join(' · ') || 'no composition data'}</div>
+        <div class="ed">${fmtDate(e.date)}<span class="et">${e.datetime && e.datetime.length > 10 ? e.datetime.slice(11,16) : ''}</span></div>
+        <div class="em">${[e.fat != null ? `fat ${e.fat}%` : '', e.muscle != null ? `muscle ${e.muscle}%` : ''].filter(Boolean).join(' · ') || 'no composition data'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:4px;">
         <div>
-          <div class="entry-weight">${e.weight != null ? e.weight.toFixed(1) + ' kg' : '—'}</div>
-          <div class="entry-bmi">BMI ${e.bmi != null ? e.bmi.toFixed(1) : '—'}</div>
+          <div class="ew">${e.weight != null ? e.weight.toFixed(1) + ' kg' : '—'}</div>
+          <div class="eb">BMI ${e.bmi != null ? e.bmi.toFixed(1) : '—'}</div>
         </div>
-        <button class="entry-delete" onclick="deleteEntry('${e.date}')" title="Delete">×</button>
+        <button class="ex" onclick="delEntry('${e.date}')">×</button>
       </div>
     </div>`).join('');
 }
-
-function deleteEntry(date) {
-  if (!confirm(`Delete entry for ${date}?`)) return;
-  const entries = loadEntries().filter(e => e.date !== date);
-  saveEntries(entries);
-  updateHeaderSub();
-  renderHistory();
+function delEntry(d) {
+  if (!confirm(`Delete entry for ${d}?`)) return;
+  save(load().filter(e => e.date !== d));
+  updSub(); renderHist();
 }
 
-function formatDate(d) {
-  const dt = new Date(d + 'T12:00:00');
-  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+// ── Import / Export ───────────────────────────────────────────────────
+function deleteAll() {
+  if (!confirm('Delete all entries? This cannot be undone.')) return;
+  save([]); updSub(); renderHist(); toast('All data deleted');
+}
+function impJSON(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const inc = JSON.parse(ev.target.result);
+      if (!Array.isArray(inc)) throw new Error('Expected array');
+      const map = {};
+      load().forEach(en => map[en.date] = en);
+      inc.forEach(en => { if (en.date) map[en.date] = en; });
+      save(Object.values(map).sort((a, b) => (a.datetime || a.date).localeCompare(b.datetime || b.date)));
+      updSub(); renderHist(); toast(`Imported ${inc.length} entries`);
+    } catch (err) { toast('Import failed: ' + err.message); }
+    e.target.value = '';
+  };
+  r.readAsText(f);
+}
+function expJSON() {
+  const b = new Blob([JSON.stringify(load(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = 'weight-data.json'; a.click();
 }
 
 // ── Charts ────────────────────────────────────────────────────────────
-let lineInst = null, compInst = null;
-
+let lInst = null, cInst = null;
 function renderCharts() {
-  const entries = loadEntries();
-  const metric  = document.getElementById('chartMetric').value;
-  const keyMap  = { weight:'weight', bmi:'bmi', fat:'fat', muscle:'muscle', moisture:'moisture' };
-  const labelMap = { weight:'Weight (kg)', bmi:'BMI', fat:'Body fat %', muscle:'Muscle %', moisture:'Moisture %' };
-
-  if (lineInst) { lineInst.destroy(); lineInst = null; }
-  if (compInst) { compInst.destroy(); compInst = null; }
-
-  const filtered = entries.filter(e => e[keyMap[metric]] != null);
-
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const gridColor  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-  const tickColor  = isDark ? '#888888' : '#999999';
-
-  if (!filtered.length) {
-    document.getElementById('tab-charts').querySelector('.empty')?.remove();
-    const wrap = document.getElementById('lineChart').parentElement;
-    wrap.insertAdjacentHTML('afterend', '<div class="empty"><div class="empty-icon">📊</div>No data yet.<br>Add some entries first.</div>');
-    return;
-  }
-
-  lineInst = new Chart(document.getElementById('lineChart'), {
+  const arr = load(), met = document.getElementById('cMet').value;
+  const keyMap = { weight: 'weight', bmi: 'bmi', fat: 'fat', muscle: 'muscle', moisture: 'moisture' };
+  if (lInst) { lInst.destroy(); lInst = null; }
+  if (cInst) { cInst.destroy(); cInst = null; }
+  const fl = arr.filter(e => e[keyMap[met]] != null);
+  if (!fl.length) return;
+  const gc = 'rgba(255,255,255,.05)', tc = '#454a60';
+  lInst = new Chart(document.getElementById('lChart'), {
     type: 'line',
-    data: {
-      labels: filtered.map(e => e.date.slice(5)),
-      datasets: [{
-        label: labelMap[metric],
-        data: filtered.map(e => e[keyMap[metric]]),
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37,99,235,0.07)',
-        borderWidth: 2,
-        pointRadius: filtered.length > 20 ? 2 : 4,
-        pointBackgroundColor: '#2563eb',
-        fill: true,
-        tension: 0.35
-      }]
-    },
+    data: { datasets: [{ data: fl.map(e => ({ x: new Date(e.date + 'T12:00:00'), y: e[keyMap[met]] })),
+      borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,.06)',
+      borderWidth: 2, pointRadius: fl.length > 30 ? 0 : 4,
+      pointBackgroundColor: '#00e5a0', pointBorderColor: '#0d0f14', pointBorderWidth: 2,
+      fill: true, tension: .4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, autoSkip: true, maxRotation: 45 } },
-        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 } } }
+        x: { type: 'time',
+          time: { unit: fl.length <= 14 ? 'day' : 'month', displayFormats: { day: 'MMM d', month: "MMM ''yy" }, tooltipFormat: 'MMM d, yyyy' },
+          grid: { color: gc }, border: { display: false },
+          ticks: { color: tc, font: { size: 11, family: 'Outfit' }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
+        y: { grid: { color: gc }, border: { display: false },
+          ticks: { color: tc, font: { size: 11, family: 'Outfit' } } }
       }
     }
   });
-
-  const latest = entries[entries.length-1];
-  const compData = [
-    { label: 'Fat',      val: latest.fat,      color: '#dc2626' },
-    { label: 'Muscle',   val: latest.muscle,   color: '#16a34a' },
-    { label: 'Moisture', val: latest.moisture, color: '#2563eb' },
+  const lat = arr[arr.length - 1];
+  const cd = [
+    { label: 'Fat',      val: lat.fat,      color: '#ff5c6c' },
+    { label: 'Muscle',   val: lat.muscle,   color: '#00e5a0' },
+    { label: 'Moisture', val: lat.moisture, color: '#4d9fff' },
   ].filter(d => d.val != null);
-
-  if (compData.length) {
-    compInst = new Chart(document.getElementById('compChart'), {
+  const cdEl = document.getElementById('compDate');
+  if (cdEl) cdEl.textContent = lat.date ? fmtDate(lat.date) : '';
+  if (cd.length) {
+    cInst = new Chart(document.getElementById('cChart'), {
       type: 'bar',
-      data: {
-        labels: compData.map(d => d.label),
-        datasets: [{ data: compData.map(d => d.val), backgroundColor: compData.map(d => d.color), borderRadius: 5 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      data: { labels: cd.map(d => d.label), datasets: [{ data: cd.map(d => d.val), backgroundColor: cd.map(d => d.color), borderRadius: 6, borderSkipped: false }] },
+      options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 } }, max: 100 },
-          y: { grid: { display: false },   ticks: { color: tickColor, font: { size: 12 } } }
+          x: { grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: { size: 11, family: 'Outfit' } }, max: 100 },
+          y: { grid: { display: false }, border: { display: false }, ticks: { color: '#7a7f96', font: { size: 12, family: 'Outfit', weight: '500' } } }
         }
       }
     });
