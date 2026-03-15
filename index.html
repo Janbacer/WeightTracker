@@ -638,7 +638,8 @@ function renderCharts() {
     type: 'line',
     data: { datasets: [{ data: fl.map(e => ({ x: new Date(e.date + 'T12:00:00'), y: e[keyMap[met]] })),
       borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,.06)',
-      borderWidth: 2, pointRadius: fl.length > 30 ? 0 : 4,
+      borderWidth: 2, pointRadius: fl.length > 30 ? 2 : 4,
+      pointHoverRadius: 6, pointHitRadius: 10,
       pointBackgroundColor: '#00e5a0', pointBorderColor: '#0d0f14', pointBorderWidth: 2,
       fill: true, tension: .4 }] },
     options: {
