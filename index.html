@@ -120,11 +120,22 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'O
   transition:all .2s;
 }
 .photo-btn:active { background:rgba(0,229,160,.08); }
-.photo-btn input { position:absolute; inset:0; opacity:0; cursor:pointer; font-size:0; }
 .photo-btn-icon { font-size:28px; }
 .photo-btn-text { display:flex; flex-direction:column; gap:2px; }
 .photo-btn-text strong { font-size:15px; font-weight:600; color:var(--text); }
 .photo-btn-text span { font-size:12px; color:var(--text2); font-weight:300; }
+.photo-actions {
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;
+}
+.photo-action {
+  display:flex; align-items:center; justify-content:center;
+  padding:11px 10px; border-radius:var(--rs);
+  border:1px solid var(--border2); background:var(--card);
+  color:var(--text); font-family:'Outfit',sans-serif;
+  font-size:13px; font-weight:600; cursor:pointer;
+}
+.photo-action:active { opacity:.9; }
+.photo-hidden { display:none; }
 
 /* ── Status ──────────────────────────────────────────────────────────── */
 .st {
@@ -288,12 +299,21 @@ select {
 
       <!-- Photo -->
       <div class="photo-btn">
-        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)">
         <div class="photo-btn-icon">📷</div>
         <div class="photo-btn-text">
           <strong>Scan scale</strong>
-          <span>Gemini reads all values automatically</span>
+          <span>Take a photo or choose one you already took</span>
         </div>
+      </div>
+      <div class="photo-actions">
+        <label class="photo-action">
+          Take photo
+          <input class="photo-hidden" type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+        </label>
+        <label class="photo-action">
+          Choose existing
+          <input class="photo-hidden" type="file" accept="image/*" onchange="handlePhoto(event)">
+        </label>
       </div>
 
       <!-- Status -->
