@@ -136,6 +136,15 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'O
 }
 .photo-action:active { opacity:.9; }
 .photo-hidden { display:none; }
+.photo-preview {
+  display:none; margin-bottom:12px;
+  border:1px solid var(--border); border-radius:var(--rs);
+  background:var(--card); padding:8px;
+}
+.photo-preview img {
+  width:100%; max-height:220px; object-fit:contain;
+  border-radius:8px; display:block; background:var(--bg2);
+}
 
 /* ── Status ──────────────────────────────────────────────────────────── */
 .st {
@@ -315,6 +324,9 @@ select {
           <input class="photo-hidden" type="file" accept="image/*" onchange="handlePhoto(event)">
         </label>
       </div>
+      <div id="photoPreview" class="photo-preview">
+        <img id="photoPreviewImg" alt="Selected scale photo preview">
+      </div>
 
       <!-- Status -->
       <div id="stEl" class="st"></div>
@@ -393,6 +405,7 @@ select {
 <script>
 // ── Storage ───────────────────────────────────────────────────────────
 const SK = 'wt_v1', HK = 'wt_ht', GK = 'wt_gemini';
+let previewUrl = null;
 const load = () => { try { return JSON.parse(localStorage.getItem(SK) || '[]'); } catch { return []; } };
 const save = a => localStorage.setItem(SK, JSON.stringify(a));
 const getHt = () => parseFloat(localStorage.getItem(HK)) || null;
@@ -474,9 +487,19 @@ function setGeminiStatus(isSet) {
   el.style.color = isSet ? 'var(--mint)' : 'var(--text3)';
 }
 
+function showPhotoPreview(file) {
+  const box = document.getElementById('photoPreview');
+  const img = document.getElementById('photoPreviewImg');
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(file);
+  img.src = previewUrl;
+  box.style.display = 'block';
+}
+
 // ── Photo → Gemini ────────────────────────────────────────────────────
 function handlePhoto(e) {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  showPhotoPreview(f);
   if (!getGeminiKey()) {
     setStatus('err', 'Add your Gemini API key first');
     document.getElementById('geminiBox').open = true;
