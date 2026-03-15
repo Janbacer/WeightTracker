@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7-Segment Debug</title>
+<style>
+  :root{--bg:#fff;--bg2:#f5f5f5;--text:#111;--text2:#666;--border:rgba(0,0,0,.12);--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--r:8px;}
+  @media(prefers-color-scheme:dark){:root{--bg:#111;--bg2:#1e1e1e;--text:#f0f0f0;--text2:#aaa;--border:rgba(255,255,255,.12);}}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:20px;max-width:800px;margin:0 auto;}
+  h1{font-size:18px;font-weight:600;margin-bottom:4px;}
+  .sub{font-size:13px;color:var(--text2);margin-bottom:20px;}
+
+  /* Upload */
+  .upload{border:1.5px dashed var(--border);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;background:var(--bg2);position:relative;margin-bottom:16px;}
+  .upload input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .upload p{font-size:14px;color:var(--text2);}
+  .upload strong{display:block;font-size:16px;color:var(--text);margin-bottom:4px;}
+
+  /* Canvases */
+  .canvas-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+  .canvas-box{background:var(--bg2);border-radius:var(--r);padding:10px;}
+  .canvas-box label{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;}
+  .canvas-box canvas{width:100%;height:auto;display:block;border-radius:4px;image-rendering:pixelated;}
+  @media(max-width:480px){.canvas-row{grid-template-columns:1fr;}}
+
+  /* Crop controls */
+  .crop-wrap{position:relative;margin-bottom:12px;background:#000;border-radius:var(--r);overflow:hidden;cursor:crosshair;}
+  #displayCanvas{width:100%;display:block;}
+  #selCanvas{position:absolute;inset:0;width:100%;height:100%;}
+  .btn-row{display:flex;gap:8px;margin-bottom:16px;}
+  button{padding:8px 16px;border-radius:var(--r);border:.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;}
+  button.primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+
+  /* Results */
+  .result-number{font-size:48px;font-weight:700;text-align:center;padding:20px;background:var(--bg2);border-radius:var(--r);margin-bottom:16px;letter-spacing:2px;}
+  .result-number.good{color:var(--green);}
+  .result-number.bad{color:var(--red);}
+
+  /* Steps */
+  .steps{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .step{background:var(--bg2);border-radius:var(--r);padding:12px 14px;font-size:13px;line-height:1.6;}
+  .step .step-title{font-weight:500;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+  .badge{display:inline-block;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:600;text-align:center;line-height:20px;flex-shrink:0;}
+  .badge.ok{background:rgba(22,163,74,.15);color:var(--green);}
+  .badge.warn{background:rgba(217,119,6,.15);color:var(--amber);}
+  .badge.err{background:rgba(220,38,38,.15);color:var(--red);}
+  .step .detail{font-size:12px;color:var(--text2);}
+
+  /* Digit cards */
+  .digit-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .digit-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r);padding:8px 10px;min-width:80px;}
+  .digit-card .dc-val{font-size:22px;font-weight:600;text-align:center;margin-bottom:4px;}
+  .digit-card .dc-segs{font-size:10px;font-family:monospace;color:var(--text2);text-align:center;margin-bottom:4px;}
+  .digit-card .dc-match{font-size:11px;text-align:center;}
+  .digit-card.exact .dc-match{color:var(--green);}
+  .digit-card.fuzzy .dc-match{color:var(--amber);}
+  .digit-card.fail .dc-match{color:var(--red);}
+
+  /* Segment diagram */
+  .seg-diagram{display:inline-block;position:relative;width:24px;height:36px;margin:0 2px;}
+  .seg{position:absolute;background:var(--border);border-radius:2px;}
+  .seg.on{background:var(--amber);}
+  .seg-top{top:0;left:3px;right:3px;height:3px;}
+  .seg-tl{top:3px;left:0;width:3px;height:14px;}
+  .seg-tr{top:3px;right:0;width:3px;height:14px;}
+  .seg-mid{top:50%;left:3px;right:3px;height:3px;transform:translateY(-50%);}
+  .seg-bl{bottom:3px;left:0;width:3px;height:14px;}
+  .seg-br{bottom:3px;right:0;width:3px;height:14px;}
+  .seg-bot{bottom:0;left:3px;right:3px;height:3px;}
+
+  .threshold-info{font-size:12px;color:var(--text2);background:var(--bg);border-radius:4px;padding:4px 8px;display:inline-block;margin-top:4px;}
+  .polarity-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;}
+  .polarity-badge.light{background:rgba(37,99,235,.1);color:var(--blue);}
+  .polarity-badge.dark{background:rgba(17,17,17,.1);color:var(--text);}
+</style>
+</head>
+<body>
+<h1>7-Segment Debug</h1>
+<p class="sub">Upload a photo, crop to the digits, and see exactly what the algorithm reads and why.</p>
+
+<div class="upload" id="uploadArea">
+  <input type="file" accept="image/*" onchange="loadImage(event)">
+  <strong>Drop image or tap to upload</strong>
+  <p>Photo of your scale display</p>
+</div>
+
+<div id="cropSection" style="display:none">
+  <div class="crop-wrap" id="cropWrap">
+    <canvas id="displayCanvas"></canvas>
+    <canvas id="selCanvas"></canvas>
+  </div>
+  <div class="btn-row">
+    <button class="primary" id="readBtn" onclick="runDebug()" disabled>Analyse crop</button>
+    <button onclick="resetCrop()">Reset box</button>
+    <button onclick="clearAll()">New image</button>
+  </div>
+</div>
+
+<div id="results" style="display:none">
+  <div id="resultNumber" class="result-number">—</div>
+  <div id="steps" class="steps"></div>
+
+  <div style="margin-bottom:8px;font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">Processed views</div>
+  <div class="canvas-row">
+    <div class="canvas-box"><label>Grayscale</label><canvas id="grayCanvas"></canvas></div>
+    <div class="canvas-box"><label>Threshold (binary)</label><canvas id="binCanvas"></canvas></div>
+    <div class="canvas-box"><label>Column projection</label><canvas id="projCanvas"></canvas></div>
+    <div class="canvas-box"><label>Detected digit regions</label><canvas id="regionCanvas"></canvas></div>
+  </div>
+</div>
+
+<script>
+let srcImg=null, layout={}, sel={x1:0,y1:0,x2:0,y2:0,done:false}, drag=false;
+
+function loadImage(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      srcImg=img;
+      document.getElementById('uploadArea').style.display='none';
+      document.getElementById('cropSection').style.display='block';
+      document.getElementById('results').style.display='none';
+      initCrop();
+    };
+    img.src=ev.target.result;
+  };
+  r.readAsDataURL(f);
+}
+
+function initCrop(){
+  const wrap=document.getElementById('cropWrap');
+  const dc=document.getElementById('displayCanvas'), sc=document.getElementById('selCanvas');
+  const maxW=Math.min(wrap.clientWidth||760, 760);
+  const scale=Math.min(maxW/srcImg.width, 500/srcImg.height, 1);
+  dc.width=Math.round(srcImg.width*scale); dc.height=Math.round(srcImg.height*scale);
+  sc.width=dc.width; sc.height=dc.height;
+  sc.style.width=dc.style.width=dc.width+'px';
+  sc.style.height=dc.style.height=dc.height+'px';
+  layout={sc:scale};
+  dc.getContext('2d').drawImage(srcImg,0,0,dc.width,dc.height);
+  sel={x1:0,y1:0,x2:0,y2:0,done:false};
+  document.getElementById('readBtn').disabled=true;
+  sc.onmousedown=sc.ontouchstart=startSel;
+  sc.onmousemove=sc.ontouchmove=moveSel;
+  sc.onmouseup=sc.ontouchend=endSel;
+}
+
+function getP(e){
+  const cv=document.getElementById('selCanvas'),r=cv.getBoundingClientRect(),s=e.touches?e.touches[0]:e;
+  return{x:(s.clientX-r.left)*(cv.width/r.width),y:(s.clientY-r.top)*(cv.height/r.height)};
+}
+function startSel(e){e.preventDefault();drag=true;const p=getP(e);sel.x1=p.x;sel.y1=p.y;sel.x2=p.x;sel.y2=p.y;drawSel();}
+function moveSel(e){e.preventDefault();if(!drag)return;const p=getP(e);sel.x2=p.x;sel.y2=p.y;drawSel();}
+function endSel(e){e.preventDefault();drag=false;sel.done=true;document.getElementById('readBtn').disabled=false;drawSel();}
+function drawSel(){
+  const cv=document.getElementById('selCanvas'),ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(0,0,cv.width,cv.height);
+  const x=Math.min(sel.x1,sel.x2),y=Math.min(sel.y1,sel.y2),w=Math.abs(sel.x2-sel.x1),h=Math.abs(sel.y2-sel.y1);
+  ctx.clearRect(x,y,w,h); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+}
+function resetCrop(){sel={x1:0,y1:0,x2:0,y2:0,done:false};document.getElementById('selCanvas').getContext('2d').clearRect(0,0,9999,9999);document.getElementById('readBtn').disabled=true;}
+function clearAll(){srcImg=null;document.getElementById('uploadArea').style.display='block';document.getElementById('cropSection').style.display='none';document.getElementById('results').style.display='none';}
+
+// ── Main debug runner ─────────────────────────────────────────────────
+function runDebug(){
+  if(!sel.done||Math.abs(sel.x2-sel.x1)<8||Math.abs(sel.y2-sel.y1)<8){alert('Draw a box first');return;}
+  const sx=Math.round(Math.min(sel.x1,sel.x2)/layout.sc);
+  const sy=Math.round(Math.min(sel.y1,sel.y2)/layout.sc);
+  const sw=Math.min(srcImg.width-sx, Math.round(Math.abs(sel.x2-sel.x1)/layout.sc));
+  const sh=Math.min(srcImg.height-sy, Math.round(Math.abs(sel.y2-sel.y1)/layout.sc));
+  const off=document.createElement('canvas'); off.width=sw; off.height=sh;
+  off.getContext('2d').drawImage(srcImg,sx,sy,sw,sh,0,0,sw,sh);
+  const idata=off.getContext('2d').getImageData(0,0,sw,sh);
+  const report=analyse(idata.data,sw,sh);
+  renderResults(report);
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+}
+
+// ── Algorithm with full instrumentation ──────────────────────────────
+function analyse(data, W, H){
+  const log=[];
+
+  // Step 1: Grayscale
+  const gray=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++) gray[i]=Math.round(.299*data[i*4]+.587*data[i*4+1]+.114*data[i*4+2]);
+  log.push({title:'Grayscale conversion',status:'ok',detail:`${W}×${H} px crop converted to brightness values (0–255) using luminance weights R×0.299 + G×0.587 + B×0.114.`});
+
+  // Step 2: Otsu
+  const hist=new Array(256).fill(0);
+  for(let i=0;i<W*H;i++) hist[gray[i]]++;
+  let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i];
+  let sB=0,wB=0,mx=0,thresh=128;
+  for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=W*H-wB;if(!wF)break;sB+=i*hist[i];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)**2;if(v>mx){mx=v;thresh=i;}}
+  const spread=mx/(W*H*W*H/4);
+  const threshStatus=spread>0.001?'ok':spread>0.0001?'warn':'err';
+  log.push({title:'Otsu threshold',status:threshStatus,detail:`Threshold: ${thresh}/255. Class variance: ${(spread*100).toFixed(3)}%. ${threshStatus==='ok'?'Good contrast between segments and background.':threshStatus==='warn'?'Moderate contrast — may misread some segments.':'Low contrast detected — lighting may be causing issues.'}`});
+
+  // Step 3: Try both polarities
+  let bestBin, bestGroups, bestPolarity, bestScore=-1, bestDetails=[];
+  for(const inv of[false,true]){
+    const bin=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++) bin[i]=inv?(gray[i]<=thresh?1:0):(gray[i]>thresh?1:0);
+    const cp=new Array(W).fill(0);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++) cp[x]+=bin[y*W+x];
+    const sm=cp.map((v,i)=>{let s=0,n=0;for(let d=-2;d<=2;d++)if(i+d>=0&&i+d<W){s+=cp[i+d];n++;}return s/n;});
+    const minC=H*.1, groups=[];let inG=false,gs=0;
+    for(let x=0;x<W;x++){if(sm[x]>minC&&!inG){inG=true;gs=x;}else if(sm[x]<=minC&&inG){inG=false;if(x-gs>4)groups.push({x1:gs,x2:x});}}
+    if(inG) groups.push({x1:gs,x2:W});
+    let score=0;
+    for(const g of groups) if((g.x2-g.x1)/H>=0.18&&readDigit(bin,W,g.x1,0,g.x2-g.x1,H)!==null) score++;
+    if(score>bestScore){bestScore=score;bestBin=bin;bestGroups=groups;bestPolarity=inv;}
+  }
+  log.push({title:'Polarity detection',status:bestScore>0?'ok':'warn',detail:`Tested light-on-dark and dark-on-light. Best: ${bestPolarity?'dark digits on light background':'light digits on dark background'} (${bestScore} digit${bestScore!==1?'s':''} matched).`,polarity:bestPolarity});
+
+  // Step 4: Column projection — find digit boundaries
+  const cp2=new Array(W).fill(0);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)cp2[x]+=bestBin[y*W+x];
+  // Smooth projection to bridge thin gaps inside digits like "7" or "1"
+  const smooth=5; // smoothing radius in px
+  const sm2=cp2.map((v,i)=>{
+    let s=0,n=0;
+    for(let d=-smooth;d<=smooth;d++)if(i+d>=0&&i+d<W){s+=cp2[i+d];n++;}
+    return s/n;
+  });
+  const minC=H*0.06;
+  const groups=[];let inG=false,gs=0;
+  for(let x=0;x<W;x++){
+    if(sm2[x]>minC&&!inG){inG=true;gs=x;}
+    else if(sm2[x]<=minC&&inG){inG=false;if(x-gs>3)groups.push({x1:gs,x2:x});}
+  }
+  if(inG)groups.push({x1:gs,x2:W});
+  log.push({
+    title:'Column projection & digit grouping',
+    status:groups.length>0?'ok':'err',
+    detail:`Smoothing radius: ${smooth}px (bridges thin digits like "1","7"). `+
+           `Threshold: ${(minC).toFixed(0)} lit px/col. `+
+           `Found ${groups.length} group${groups.length!==1?'s':''}: `+
+           (groups.map(g=>`[x${g.x1}–x${g.x2}, w=${g.x2-g.x1}px, aspect=${(g.x2-g.x1)/H>0.18?'digit':'dot/narrow'}]`).join(', ')||'none'),
+    projData:{cp:cp2,sm:sm2,groups,minC,W,H}
+  });
+
+  // Step 5: Decode each group
+  const digitDetails=[];
+  const tokens=[];
+  for(const g of groups){
+    const gw=g.x2-g.x1,asp=gw/H;
+    if(asp<0.18){
+      // Narrow group — check if it's a decimal point (lit in lower half)
+      const dotLit=samp(bestBin,W,g.x1,0,gw,H,0,.55,1,1);
+      if(dotLit>.2){tokens.push('.');digitDetails.push({type:'dot',lit:dotLit,x1:g.x1,x2:g.x2});}
+      else digitDetails.push({type:'noise',lit:dotLit,x1:g.x1,x2:g.x2});
+      continue;
+    }
+    const segs=getSegs(bestBin,W,g.x1,0,gw,H);
+    const key=segs.map(s=>s>.25?1:0).join('');
+    const M={'1110111':0,'0010010':1,'1011101':2,'1011011':3,'0111010':4,'1101011':5,'1101111':6,'1010010':7,'1111111':8,'1111011':9};
+    let digit=null,matchType='fail',fuzzyOff=-1;
+    if(M[key]!==undefined){digit=M[key];matchType='exact';}
+    else{for(const[p,d2]of Object.entries(M)){let df=0,offIdx=-1;for(let i=0;i<7;i++)if(p[i]!==key[i]){df++;offIdx=i;}if(df===1){digit=d2;matchType='fuzzy';fuzzyOff=offIdx;break;}}}
+    if(digit!==null)tokens.push(String(digit));
+    digitDetails.push({type:'digit',key,segs,digit,matchType,fuzzyOff,x1:g.x1,x2:g.x2});
+  }
+  const decodeStatus=digitDetails.filter(d=>d.type==='digit'&&d.matchType==='fail').length===0?'ok':digitDetails.filter(d=>d.type==='digit'&&d.matchType!=='fail').length>0?'warn':'err';
+  log.push({title:'Segment decoding',status:decodeStatus,digitDetails});
+
+  // Step 6: Assemble number
+  let cur='',nums=[];
+  for(const t of tokens){
+    if(t==='.'){ if(cur.includes('.')){if(cur)nums.push(parseFloat(cur));cur='0.';}else cur+='.';}
+    else cur+=t;
+  }
+  if(cur&&cur!=='.') nums.push(parseFloat(cur));
+  nums=nums.filter(n=>!isNaN(n));
+  log.push({title:'Number assembly',status:nums.length>0?'ok':'err',
+    detail:`Tokens: [${tokens.join(', ')}] → Numbers: [${nums.map(n=>n.toFixed(1)).join(', ')||'none'}]`});
+
+  return{log,nums,gray,bestBin,bestGroups:groups,W,H,thresh,bestPolarity,digitDetails};
+}
+
+function getSegs(bin,W,dx,dy,dw,dh){
+  return[
+    samp(bin,W,dx,dy,dw,dh,0.15,0.00,0.85,0.12),
+    samp(bin,W,dx,dy,dw,dh,0.00,0.08,0.20,0.46),
+    samp(bin,W,dx,dy,dw,dh,0.80,0.08,1.00,0.46),
+    samp(bin,W,dx,dy,dw,dh,0.15,0.44,0.85,0.56),
+    samp(bin,W,dx,dy,dw,dh,0.00,0.54,0.20,0.92),
+    samp(bin,W,dx,dy,dw,dh,0.80,0.54,1.00,0.92),
+    samp(bin,W,dx,dy,dw,dh,0.15,0.88,0.85,1.00),
+  ];
+}
+function samp(bin,W,dx,dy,dw,dh,x1f,y1f,x2f,y2f){
+  const x1=dx+Math.floor(x1f*dw),x2=dx+Math.floor(x2f*dw),y1=dy+Math.floor(y1f*dh),y2=dy+Math.floor(y2f*dh);
+  let l=0,tot=0;
+  for(let y=y1;y<y2;y++)for(let x=x1;x<x2;x++){if(x>=0&&x<W&&y>=0){l+=bin[y*W+x];tot++;}}
+  return tot>0?l/tot:0;
+}
+function readDigit(bin,W,dx,dy,dw,dh){
+  const T=0.25,segs=getSegs(bin,W,dx,dy,dw,dh);
+  const key=segs.map(s=>s>T?1:0).join('');
+  const M={'1110111':0,'0010010':1,'1011101':2,'1011011':3,'0111010':4,'1101011':5,'1101111':6,'1010010':7,'1111111':8,'1111011':9};
+  if(M[key]!==undefined) return M[key];
+  for(const[p,d]of Object.entries(M)){let df=0;for(let i=0;i<7;i++)if(p[i]!==key[i])df++;if(df===1)return d;}
+  return null;
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+const SEG_NAMES=['top','top-left','top-right','middle','bot-left','bot-right','bottom'];
+
+function renderResults(r){
+  // Result number
+  const el=document.getElementById('resultNumber');
+  if(r.nums.length){el.textContent=r.nums.map(n=>n.toFixed(1)).join('  ');el.className='result-number good';}
+  else{el.textContent='No number read';el.className='result-number bad';}
+
+  // Steps
+  const stepsEl=document.getElementById('steps');
+  stepsEl.innerHTML='';
+  r.log.forEach((step,i)=>{
+    const div=document.createElement('div'); div.className='step';
+    let inner=`<div class="step-title"><span class="badge ${step.status}">${i+1}</span><span>${step.title}</span></div>`;
+    if(step.detail) inner+=`<div class="detail">${step.detail}</div>`;
+    if(step.polarity!==undefined) inner+=`<div style="margin-top:4px"><span class="polarity-badge ${step.polarity?'light':'dark'}">${step.polarity?'dark-on-light':'light-on-dark'}</span></div>`;
+    if(step.digitDetails){
+      inner+=`<div class="digit-grid">`;
+      step.digitDetails.forEach(d=>{
+        if(d.type==='dot'){inner+=`<div class="digit-card exact"><div class="dc-val" style="font-size:28px">.</div><div class="dc-match" style="color:var(--green)">decimal point</div></div>`;return;}
+        if(d.type==='noise') return;
+        const on=d.segs.map(s=>s>.25);
+        const segHtml=`<div class="seg-diagram"><div class="seg seg-top ${on[0]?'on':''}"></div><div class="seg seg-tl ${on[1]?'on':''}"></div><div class="seg seg-tr ${on[2]?'on':''}"></div><div class="seg seg-mid ${on[3]?'on':''}"></div><div class="seg seg-bl ${on[4]?'on':''}"></div><div class="seg seg-br ${on[5]?'on':''}"></div><div class="seg seg-bot ${on[6]?'on':''}"></div></div>`;
+        let matchTxt='', matchCls=d.matchType;
+        if(d.matchType==='exact') matchTxt='exact match';
+        else if(d.matchType==='fuzzy') matchTxt=`fuzzy (seg ${SEG_NAMES[d.fuzzyOff]} off)`;
+        else matchTxt=`no match (${d.key})`;
+        inner+=`<div class="digit-card ${d.matchType}">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">${segHtml}<span class="dc-val">${d.digit!==null?d.digit:'?'}</span></div>
+          <div class="dc-segs">${d.segs.map((s,i)=>`<span title="${SEG_NAMES[i]}" style="color:${s>.25?'var(--amber)':'var(--text3)'}">${s>.25?'█':'░'}</span>`).join('')}</div>
+          <div class="dc-match">${matchTxt}</div>
+        </div>`;
+      });
+      inner+=`</div>`;
+    }
+    div.innerHTML=inner; stepsEl.appendChild(div);
+  });
+
+  // Debug canvases
+  renderGray(r.gray, r.W, r.H);
+  renderBin(r.bestBin, r.W, r.H, r.bestPolarity);
+  const projStep=r.log.find(s=>s.projData); renderProj(r.bestBin, r.W, r.H, r.bestGroups, projStep?projStep.projData:null);
+  renderRegions(r.gray, r.W, r.H, r.bestGroups, r.digitDetails);
+}
+
+function putCanvas(id, W, H, fn){
+  const cv=document.getElementById(id);
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const img=ctx.createImageData(W,H);
+  fn(img.data);
+  ctx.putImageData(img,0,0);
+}
+
+function renderGray(gray,W,H){
+  putCanvas('grayCanvas',W,H,d=>{for(let i=0;i<W*H;i++){const v=gray[i];d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;}});
+}
+function renderBin(bin,W,H){
+  putCanvas('binCanvas',W,H,d=>{for(let i=0;i<W*H;i++){const v=bin[i]?255:0;d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;}});
+}
+function renderProj(bin,W,H,groups,projData){
+  const PH=100;
+  const cv=document.getElementById('projCanvas');
+  cv.width=W; cv.height=PH;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg2')||'#f5f5f5';
+  ctx.fillRect(0,0,W,PH);
+
+  const cp = projData ? projData.cp : (()=>{const a=new Array(W).fill(0);for(let y=0;y<H;y++)for(let x=0;x<W;x++)a[x]+=bin[y*W+x];return a;})();
+  const sm = projData ? projData.sm : cp;
+  const minC = projData ? projData.minC : H*0.1;
+  const maxC = Math.max(...cp,1);
+
+  // Group highlights
+  (projData?projData.groups:groups).forEach(g=>{ctx.fillStyle='rgba(37,99,235,.1)';ctx.fillRect(g.x1,0,g.x2-g.x1,PH);});
+
+  // Threshold line
+  ctx.strokeStyle='rgba(220,38,38,.6)'; ctx.lineWidth=1; ctx.setLineDash([3,2]);
+  const tY=PH-(minC/maxC)*PH; ctx.beginPath();ctx.moveTo(0,tY);ctx.lineTo(W,tY);ctx.stroke();ctx.setLineDash([]);
+
+  // Raw bars (faint)
+  ctx.fillStyle='rgba(37,99,235,.3)';
+  for(let x=0;x<W;x++){const bh=(cp[x]/maxC)*PH;ctx.fillRect(x,PH-bh,1,bh);}
+
+  // Smoothed line (solid)
+  ctx.strokeStyle='#2563eb'; ctx.lineWidth=1.5; ctx.beginPath();
+  for(let x=0;x<W;x++){const y=PH-(sm[x]/maxC)*PH;x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.stroke();
+}
+function renderRegions(gray,W,H,groups,digitDetails){
+  putCanvas('regionCanvas',W,H,d=>{
+    for(let i=0;i<W*H;i++){const v=gray[i];d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;}
+  });
+  const cv=document.getElementById('regionCanvas');
+  const ctx=cv.getContext('2d');
+  const colors=['#3b82f6','#22c55e','#f59e0b','#ec4899','#8b5cf6','#14b8a6'];
+  let di=0;
+  digitDetails.forEach((d,i)=>{
+    if(d.type==='noise') return;
+    const g=groups[i]||groups[di]; if(!g) return;
+    const col=d.matchType==='fail'?'#dc2626':colors[di%colors.length];
+    ctx.strokeStyle=col; ctx.lineWidth=2;
+    ctx.strokeRect(g.x1,0,g.x2-g.x1,H);
+    ctx.fillStyle=col; ctx.fillRect(g.x1,0,18,18);
+    ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(d.digit!==null?d.digit:'?',g.x1+9,9);
+    di++;
+  });
+}
+</script>
+</body>
+</html>

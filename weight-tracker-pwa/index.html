@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Weight">
+<title>Weight Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f5;
+    --bg3: #eeeeee;
+    --text: #111111;
+    --text2: #666666;
+    --text3: #999999;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --blue: #2563eb;
+    --green: #16a34a;
+    --red: #dc2626;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111111;
+      --bg2: #1e1e1e;
+      --bg3: #2a2a2a;
+      --text: #f0f0f0;
+      --text2: #aaaaaa;
+      --text3: #666666;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  #app { display: flex; flex-direction: column; height: 100%; max-width: 480px; margin: 0 auto; }
+
+  /* Header */
+  .header { padding: 16px 20px 0; padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  /* Tab bar */
+  .tabbar { display: flex; border-bottom: 0.5px solid var(--border); margin: 12px 20px 0; }
+  .tabbar button { flex: 1; padding: 10px 0; background: none; border: none; border-bottom: 2.5px solid transparent; color: var(--text2); font-size: 14px; cursor: pointer; margin-bottom: -0.5px; transition: color 0.15s; }
+  .tabbar button.active { border-bottom-color: var(--text); color: var(--text); font-weight: 500; }
+
+  /* Content area */
+  .content { flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: calc(20px + var(--safe-bottom)); }
+
+  /* Screens */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* Upload area */
+  .upload-area { border: 1.5px dashed var(--border2); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; background: var(--bg2); position: relative; }
+  .upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+  .upload-icon { font-size: 36px; margin-bottom: 8px; }
+  .upload-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: var(--text2); }
+
+  /* Preview image */
+  #previewImg { width: 100%; border-radius: var(--radius-sm); margin: 12px 0 8px; max-height: 240px; object-fit: contain; display: none; background: var(--bg2); }
+
+  /* Status */
+  .status { font-size: 13px; text-align: center; padding: 8px; border-radius: var(--radius-sm); margin-bottom: 8px; display: none; }
+  .status.loading { background: rgba(37,99,235,0.08); color: var(--blue); }
+  .status.success { background: rgba(22,163,74,0.08); color: var(--green); }
+  .status.error   { background: rgba(220,38,38,0.08); color: var(--red); }
+
+  /* Form */
+  .form-section { margin-top: 16px; }
+  .form-section-label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; color: var(--text2); }
+  .form-group input { font-size: 15px; padding: 9px 11px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); width: 100%; outline: none; }
+  .form-group input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-full { margin-bottom: 8px; }
+
+  /* Buttons */
+  .btn-primary { width: 100%; padding: 13px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 12px; transition: opacity 0.15s; }
+  .btn-primary:active { opacity: 0.7; }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* API key section */
+  .apikey-box { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 14px; }
+  .apikey-box summary { font-size: 13px; color: var(--text2); cursor: pointer; user-select: none; }
+  .apikey-box .inner { margin-top: 10px; }
+  .apikey-box input { font-size: 13px; padding: 8px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); width: 100%; outline: none; font-family: monospace; }
+  .apikey-box p { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+
+  /* Metric cards */
+  .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-bottom: 20px; }
+  .metric-card { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px 10px; }
+  .metric-card .m-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .metric-card .m-value { font-size: 19px; font-weight: 600; line-height: 1; }
+  .metric-card .m-unit { font-size: 11px; font-weight: 400; color: var(--text2); }
+  .metric-card .m-delta { font-size: 11px; margin-top: 4px; }
+  .delta-up   { color: var(--red); }
+  .delta-down { color: var(--green); }
+  .delta-neu  { color: var(--text3); }
+
+  /* Entry list */
+  .section-label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .entry-list { display: flex; flex-direction: column; gap: 6px; }
+  .entry-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg2); border-radius: var(--radius-sm); }
+  .entry-date { font-size: 14px; font-weight: 500; }
+  .entry-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .entry-weight { font-size: 18px; font-weight: 600; text-align: right; }
+  .entry-bmi { font-size: 11px; color: var(--text2); text-align: right; margin-top: 2px; }
+  .entry-delete { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; padding: 4px 0 4px 12px; }
+
+  /* Charts */
+  .chart-select-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .chart-select-row label { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+  select { font-size: 13px; padding: 5px 8px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); outline: none; }
+  .chart-wrap { position: relative; width: 100%; height: 220px; margin-bottom: 24px; }
+  .comp-wrap { position: relative; width: 100%; height: 160px; margin-bottom: 16px; }
+
+  /* Empty */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 14px; line-height: 1.7; }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 20px; font-size: 13px; opacity: 0; transition: all 0.2s; pointer-events: none; white-space: nowrap; z-index: 100; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <h1>Weight Tracker</h1>
+    <p id="headerSub">Log your measurements</p>
+  </div>
+
+  <div class="tabbar">
+    <button class="active" onclick="showTab('log', this)">Log</button>
+    <button onclick="showTab('history', this)">History</button>
+    <button onclick="showTab('charts', this)">Charts</button>
+  </div>
+
+  <div class="content">
+
+    <!-- LOG TAB -->
+    <div id="tab-log" class="screen active">
+
+      <details class="apikey-box">
+        <summary>API key (needed for photo reading)</summary>
+        <div class="inner">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-..." oninput="saveApiKey(this.value)">
+          <p>Your key is stored only on this device. Get one free at console.anthropic.com — you get $5 credit to start which is thousands of photo reads.</p>
+        </div>
+      </details>
+
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="imgInput" accept="image/*" capture="environment" onchange="handleImage(event)">
+        <div class="upload-icon">📷</div>
+        <div class="upload-title">Take a photo of your scale</div>
+        <div class="upload-sub">AI reads the numbers automatically</div>
+      </div>
+
+      <img id="previewImg" alt="Scale preview">
+
+      <div id="readStatus" class="status"></div>
+
+      <div class="form-section">
+        <div class="form-section-label">Measurements</div>
+
+        <div class="form-full form-group">
+          <label>Date</label>
+          <input type="date" id="f-date">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group"><label>Weight (kg)</label><input type="number" id="f-weight" step="0.1" inputmode="decimal" placeholder="—"></div>
+          <div class="form-group"><label>BMI</label><input type="number" id="f-bmi" step="0.1" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Body fat %</label><input type="number" id="f-fat" step="0.1" inputmode="decimal" placeholder="—"></div>
+          <div class="form-group"><label>Muscle %</label><input type="number" id="f-muscle" step="0.1" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Moisture %</label><input type="number" id="f-moisture" step="0.1" inputmode="decimal" placeholder="—"></div>
+          <div class="form-group"><label>Bone mass (kg)</label><input type="number" id="f-bone" step="0.01" inputmode="decimal" placeholder="—"></div>
+        </div>
+
+        <button class="btn-primary" id="saveBtn" onclick="saveEntry()">Save entry</button>
+      </div>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div id="tab-history" class="screen">
+      <div id="summaryCards" class="metric-grid"></div>
+      <div class="section-label">All entries</div>
+      <div id="entryList" class="entry-list"></div>
+    </div>
+
+    <!-- CHARTS TAB -->
+    <div id="tab-charts" class="screen">
+      <div class="chart-select-row">
+        <label>Trend</label>
+        <select id="chartMetric" onchange="renderCharts()">
+          <option value="weight">Weight (kg)</option>
+          <option value="bmi">BMI</option>
+          <option value="fat">Body fat %</option>
+          <option value="muscle">Muscle %</option>
+          <option value="moisture">Moisture %</option>
+        </select>
+      </div>
+      <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+
+      <div class="section-label">Latest composition</div>
+      <div class="comp-wrap"><canvas id="compChart"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── Storage ───────────────────────────────────────────────────────────
+const STORE_KEY   = 'wt_entries_v1';
+const APIKEY_KEY  = 'wt_apikey';
+
+function loadEntries() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+}
+function saveEntries(arr) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+}
+function getApiKey() { return localStorage.getItem(APIKEY_KEY) || ''; }
+function saveApiKey(v) { localStorage.setItem(APIKEY_KEY, v.trim()); }
+
+// ── Init ──────────────────────────────────────────────────────────────
+document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+const savedKey = getApiKey();
+if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+updateHeaderSub();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'history') renderHistory();
+  if (name === 'charts')  renderCharts();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── Header sub ────────────────────────────────────────────────────────
+function updateHeaderSub() {
+  const entries = loadEntries();
+  const sub = document.getElementById('headerSub');
+  if (!entries.length) { sub.textContent = 'No entries yet'; return; }
+  const latest = entries[entries.length-1];
+  sub.textContent = latest.weight ? `Last: ${latest.weight.toFixed(1)} kg on ${latest.date}` : `Last entry: ${latest.date}`;
+}
+
+// ── Image handling ────────────────────────────────────────────────────
+function handleImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = document.getElementById('previewImg');
+    img.src = ev.target.result;
+    img.style.display = 'block';
+    readScaleImage(ev.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function setStatus(type, html) {
+  const el = document.getElementById('readStatus');
+  el.className = 'status ' + type;
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+async function readScaleImage(dataUrl) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    setStatus('error', 'Add your API key above to enable photo reading — or fill in values manually');
+    return;
+  }
+
+  setStatus('loading', '<span class="spinner"></span>Reading scale display…');
+
+  const base64    = dataUrl.split(',')[1];
+  const mediaType = dataUrl.split(';')[0].split(':')[1];
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-6',
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: 'This is a smart scale display. Extract all visible measurements. Return ONLY a JSON object with keys: weight (kg, number), bmi (number), body_fat_rate (%, number), muscle_rate (%, number), moisture_rate (%, number), bone_mass (kg, number). Use null for any value not visible. Example: {"weight":72.3,"bmi":22.1,"body_fat_rate":18.5,"muscle_rate":45.2,"moisture_rate":58.3,"bone_mass":2.8}' }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.content.map(c => c.text || '').join('');
+    const match = text.match(/\{[\s\S]*?\}/);
+    if (!match) throw new Error('No values found in response');
+
+    const vals = JSON.parse(match[0]);
+    const fieldMap = {
+      weight: 'f-weight', bmi: 'f-bmi',
+      body_fat_rate: 'f-fat', muscle_rate: 'f-muscle',
+      moisture_rate: 'f-moisture', bone_mass: 'f-bone'
+    };
+    let filled = 0;
+    for (const [key, id] of Object.entries(fieldMap)) {
+      if (vals[key] != null) { document.getElementById(id).value = vals[key]; filled++; }
+    }
+    setStatus('success', `Read ${filled} values — review and save`);
+  } catch (err) {
+    setStatus('error', `Could not read automatically: ${err.message}. Fill in values manually.`);
+  }
+}
+
+// ── Save entry ────────────────────────────────────────────────────────
+function saveEntry() {
+  const entry = {
+    date:     document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
+    weight:   parseFloat(document.getElementById('f-weight').value)   || null,
+    bmi:      parseFloat(document.getElementById('f-bmi').value)      || null,
+    fat:      parseFloat(document.getElementById('f-fat').value)      || null,
+    muscle:   parseFloat(document.getElementById('f-muscle').value)   || null,
+    moisture: parseFloat(document.getElementById('f-moisture').value) || null,
+    bone:     parseFloat(document.getElementById('f-bone').value)     || null,
+  };
+
+  if (!entry.weight && !entry.bmi) { toast('Enter at least weight or BMI'); return; }
+
+  const entries = loadEntries();
+  const idx = entries.findIndex(e => e.date === entry.date);
+  if (idx >= 0) entries[idx] = entry; else entries.push(entry);
+  entries.sort((a,b) => a.date.localeCompare(b.date));
+  saveEntries(entries);
+
+  ['f-weight','f-bmi','f-fat','f-muscle','f-moisture','f-bone'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('readStatus').style.display = 'none';
+  document.getElementById('imgInput').value = '';
+
+  updateHeaderSub();
+  toast('Entry saved!');
+}
+
+// ── History ───────────────────────────────────────────────────────────
+function renderHistory() {
+  const entries = loadEntries();
+  const listEl  = document.getElementById('entryList');
+  const cardsEl = document.getElementById('summaryCards');
+
+  if (!entries.length) {
+    cardsEl.innerHTML = '';
+    listEl.innerHTML  = '<div class="empty"><div class="empty-icon">⚖️</div>No entries yet.<br>Log your first measurement.</div>';
+    return;
+  }
+
+  const latest = entries[entries.length - 1];
+  const prev   = entries.length > 1 ? entries[entries.length - 2] : null;
+
+  function delta(key, invert=false) {
+    if (!prev || latest[key] == null || prev[key] == null) return '';
+    const d = latest[key] - prev[key];
+    if (Math.abs(d) < 0.01) return `<div class="m-delta delta-neu">no change</div>`;
+    const sign  = d > 0 ? '+' : '';
+    const bad   = invert ? d < 0 : d > 0;
+    const cls   = bad ? 'delta-up' : 'delta-down';
+    return `<div class="m-delta ${cls}">${sign}${d.toFixed(1)}</div>`;
+  }
+
+  cardsEl.innerHTML = `
+    <div class="metric-card">
+      <div class="m-label">Weight</div>
+      <div class="m-value">${latest.weight != null ? latest.weight.toFixed(1) : '—'}<span class="m-unit"> kg</span></div>
+      ${delta('weight')}
+    </div>
+    <div class="metric-card">
+      <div class="m-label">Body fat</div>
+      <div class="m-value">${latest.fat != null ? latest.fat.toFixed(1) : '—'}<span class="m-unit"> %</span></div>
+      ${delta('fat')}
+    </div>
+    <div class="metric-card">
+      <div class="m-label">BMI</div>
+      <div class="m-value">${latest.bmi != null ? latest.bmi.toFixed(1) : '—'}</div>
+      ${delta('bmi')}
+    </div>`;
+
+  listEl.innerHTML = [...entries].reverse().map(e => `
+    <div class="entry-row">
+      <div>
+        <div class="entry-date">${formatDate(e.date)}</div>
+        <div class="entry-meta">${[
+          e.fat      != null ? `fat ${e.fat}%`      : '',
+          e.muscle   != null ? `muscle ${e.muscle}%`: '',
+          e.moisture != null ? `moisture ${e.moisture}%` : ''
+        ].filter(Boolean).join(' · ') || 'no composition data'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <div>
+          <div class="entry-weight">${e.weight != null ? e.weight.toFixed(1) + ' kg' : '—'}</div>
+          <div class="entry-bmi">BMI ${e.bmi != null ? e.bmi.toFixed(1) : '—'}</div>
+        </div>
+        <button class="entry-delete" onclick="deleteEntry('${e.date}')" title="Delete">×</button>
+      </div>
+    </div>`).join('');
+}
+
+function deleteEntry(date) {
+  if (!confirm(`Delete entry for ${date}?`)) return;
+  const entries = loadEntries().filter(e => e.date !== date);
+  saveEntries(entries);
+  updateHeaderSub();
+  renderHistory();
+}
+
+function formatDate(d) {
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── Charts ────────────────────────────────────────────────────────────
+let lineInst = null, compInst = null;
+
+function renderCharts() {
+  const entries = loadEntries();
+  const metric  = document.getElementById('chartMetric').value;
+  const keyMap  = { weight:'weight', bmi:'bmi', fat:'fat', muscle:'muscle', moisture:'moisture' };
+  const labelMap = { weight:'Weight (kg)', bmi:'BMI', fat:'Body fat %', muscle:'Muscle %', moisture:'Moisture %' };
+
+  if (lineInst) { lineInst.destroy(); lineInst = null; }
+  if (compInst) { compInst.destroy(); compInst = null; }
+
+  const filtered = entries.filter(e => e[keyMap[metric]] != null);
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const tickColor  = isDark ? '#888888' : '#999999';
+
+  if (!filtered.length) {
+    document.getElementById('tab-charts').querySelector('.empty')?.remove();
+    const wrap = document.getElementById('lineChart').parentElement;
+    wrap.insertAdjacentHTML('afterend', '<div class="empty"><div class="empty-icon">📊</div>No data yet.<br>Add some entries first.</div>');
+    return;
+  }
+
+  lineInst = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: filtered.map(e => e.date.slice(5)),
+      datasets: [{
+        label: labelMap[metric],
+        data: filtered.map(e => e[keyMap[metric]]),
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37,99,235,0.07)',
+        borderWidth: 2,
+        pointRadius: filtered.length > 20 ? 2 : 4,
+        pointBackgroundColor: '#2563eb',
+        fill: true,
+        tension: 0.35
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, autoSkip: true, maxRotation: 45 } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 } } }
+      }
+    }
+  });
+
+  const latest = entries[entries.length-1];
+  const compData = [
+    { label: 'Fat',      val: latest.fat,      color: '#dc2626' },
+    { label: 'Muscle',   val: latest.muscle,   color: '#16a34a' },
+    { label: 'Moisture', val: latest.moisture, color: '#2563eb' },
+  ].filter(d => d.val != null);
+
+  if (compData.length) {
+    compInst = new Chart(document.getElementById('compChart'), {
+      type: 'bar',
+      data: {
+        labels: compData.map(d => d.label),
+        datasets: [{ data: compData.map(d => d.val), backgroundColor: compData.map(d => d.color), borderRadius: 5 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 } }, max: 100 },
+          y: { grid: { display: false },   ticks: { color: tickColor, font: { size: 12 } } }
+        }
+      }
+    });
+  }
+}
+</script>
+</body>
+</html>
