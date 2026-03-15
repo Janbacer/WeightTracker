@@ -13,7 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <style>
 :root {
   --bg:     #0d0f14;
@@ -146,33 +145,6 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'O
   width:100%; max-height:220px; object-fit:contain;
   border-radius:8px; display:block; background:var(--bg2);
 }
-
-/* ── Photo editor modal ─────────────────────────────────────────────── */
-.pm {
-  position:fixed; inset:0; z-index:350; display:none;
-  background:rgba(0,0,0,.78); padding:18px;
-}
-.pm.on { display:flex; align-items:center; justify-content:center; }
-.pm-card {
-  width:min(100%,520px); max-height:88vh; overflow:hidden;
-  background:var(--card); border:1px solid var(--border2);
-  border-radius:var(--r); display:flex; flex-direction:column; gap:10px;
-  padding:12px;
-}
-.pm-head { font-size:14px; font-weight:600; color:var(--text2); }
-.pm-body {
-  min-height:220px; max-height:56vh;
-  background:var(--bg2); border-radius:10px; overflow:hidden;
-}
-.pm-body img { max-width:100%; display:block; }
-.pm-tools { display:flex; gap:8px; }
-.pm-tools button, .pm-actions button {
-  border:1px solid var(--border2); background:var(--bg3); color:var(--text);
-  border-radius:8px; padding:9px 11px; font-family:'Outfit',sans-serif;
-  font-size:12px; font-weight:600; cursor:pointer;
-}
-.pm-actions { display:flex; justify-content:flex-end; gap:8px; }
-.pm-actions .ok { background:linear-gradient(135deg,var(--mint),var(--mint2)); color:#0a1a12; border:none; }
 
 /* ── Status ──────────────────────────────────────────────────────────── */
 .st {
@@ -426,33 +398,14 @@ select {
   </div>
 </div>
 
-<div id="photoModal" class="pm" role="dialog" aria-modal="true" aria-label="Crop and rotate photo">
-  <div class="pm-card">
-    <div class="pm-head">Adjust photo before reading</div>
-    <div class="pm-body"><img id="photoModalImg" alt="Crop editor"></div>
-    <div class="pm-tools">
-      <button type="button" onclick="rotatePhoto(-90)">Rotate left</button>
-      <button type="button" onclick="rotatePhoto(90)">Rotate right</button>
-      <button type="button" onclick="resetPhotoEdit()">Reset</button>
-    </div>
-    <div class="pm-actions">
-      <button type="button" onclick="cancelPhotoEdit()">Cancel</button>
-      <button class="ok" type="button" onclick="applyPhotoEdit()">Use this photo</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script>
 // ── Storage ───────────────────────────────────────────────────────────
 const SK = 'wt_v1', HK = 'wt_ht', GK = 'wt_gemini';
 let previewUrl = null;
-let photoCropper = null;
-let photoEditResolve = null;
 const load = () => { try { return JSON.parse(localStorage.getItem(SK) || '[]'); } catch { return []; } };
 const save = a => localStorage.setItem(SK, JSON.stringify(a));
 const getHt = () => parseFloat(localStorage.getItem(HK)) || null;
@@ -543,85 +496,19 @@ function showPhotoPreview(file) {
   box.style.display = 'block';
 }
 
-function openPhotoEditor(file) {
-  return new Promise(resolve => {
-    const modal = document.getElementById('photoModal');
-    const img = document.getElementById('photoModalImg');
-    if (photoCropper) {
-      photoCropper.destroy();
-      photoCropper = null;
-    }
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = URL.createObjectURL(file);
-    img.src = previewUrl;
-    photoEditResolve = resolve;
-    modal.classList.add('on');
-    img.onload = () => {
-      photoCropper = new Cropper(img, {
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 1,
-        responsive: true,
-        background: false,
-        rotatable: true,
-      });
-    };
-  });
-}
-
-function closePhotoEditor(result) {
-  const modal = document.getElementById('photoModal');
-  modal.classList.remove('on');
-  if (photoCropper) {
-    photoCropper.destroy();
-    photoCropper = null;
-  }
-  if (photoEditResolve) {
-    photoEditResolve(result);
-    photoEditResolve = null;
-  }
-}
-
-function rotatePhoto(deg) {
-  if (photoCropper) photoCropper.rotate(deg);
-}
-
-function resetPhotoEdit() {
-  if (photoCropper) photoCropper.reset();
-}
-
-function cancelPhotoEdit() {
-  closePhotoEditor(null);
-}
-
-function applyPhotoEdit() {
-  if (!photoCropper) { closePhotoEditor(null); return; }
-  const out = photoCropper.getCroppedCanvas({
-    maxWidth: 1800,
-    maxHeight: 1800,
-    fillColor: '#000000',
-  });
-  closePhotoEditor(out ? out.toDataURL('image/jpeg', 0.95) : null);
-}
-
 // ── Photo → Gemini ────────────────────────────────────────────────────
-async function handlePhoto(e) {
+function handlePhoto(e) {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
-  const editedDataUrl = await openPhotoEditor(f);
-  if (!editedDataUrl) return;
-  const img = document.getElementById('photoPreviewImg');
-  const box = document.getElementById('photoPreview');
-  if (previewUrl) URL.revokeObjectURL(previewUrl);
-  previewUrl = null;
-  img.src = editedDataUrl;
-  box.style.display = 'block';
+  showPhotoPreview(f);
   if (!getGeminiKey()) {
     setStatus('err', 'Add your Gemini API key first');
     document.getElementById('geminiBox').open = true;
     return;
   }
   setStatus('loading', 'Reading your scale…');
-  readWithGemini(editedDataUrl);
+  const r = new FileReader();
+  r.onload = ev => readWithGemini(ev.target.result);
+  r.readAsDataURL(f);
 }
 
 async function readWithGemini(dataUrl) {
