@@ -792,9 +792,9 @@ function confirmCrop() {
   readWithGemini(dataUrl);
 }
 
-// Newest stable "gemini-X.Y-flash" this key can use, cached for a day, so new
-// Flash releases are picked up without editing the code.
-const MK = 'wt_gemini_model';
+// Newest stable "gemini-X.Y-flash-lite" (fastest) this key can use, else the newest
+// "gemini-X.Y-flash"; cached for a day, so new releases are picked up without code edits.
+const MK = 'wt_gemini_fast_model';
 async function getGeminiModel(key) {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(MK)); } catch {}
@@ -803,16 +803,16 @@ async function getGeminiModel(key) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${key}`);
     if (!res.ok) throw new Error();
     const { models = [] } = await res.json();
-    const ver = n => n.match(/^models\/gemini-(\d+)(?:\.(\d+))?-flash$/);
+    const ver = n => n.match(/^models\/gemini-(\d+)(?:\.(\d+))?-flash(-lite)?$/);
     const best = models
       .filter(m => ver(m.name) && m.supportedGenerationMethods?.includes('generateContent'))
-      .map(m => { const v = ver(m.name); return { model: m.name.slice(7), major: +v[1], minor: +(v[2] || 0) }; })
-      .sort((a, b) => b.major - a.major || b.minor - a.minor)[0];
+      .map(m => { const v = ver(m.name); return { model: m.name.slice(7), lite: !!v[3], major: +v[1], minor: +(v[2] || 0) }; })
+      .sort((a, b) => b.lite - a.lite || b.major - a.major || b.minor - a.minor)[0];
     if (!best) throw new Error();
     localStorage.setItem(MK, JSON.stringify({ model: best.model, at: Date.now() }));
     return best.model;
   } catch {
-    return cached?.model || 'gemini-flash-latest';
+    return cached?.model || 'gemini-flash-lite-latest';
   }
 }
 
