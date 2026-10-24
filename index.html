@@ -501,8 +501,8 @@ if (_k) { document.getElementById('geminiKeyInput').value = _k; setGeminiStatus(
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
 // ── Helpers ───────────────────────────────────────────────────────────
-function nowDT() {
-  const n = new Date(), p = x => String(x).padStart(2, '0');
+function nowDT(n = new Date()) {
+  const p = x => String(x).padStart(2, '0');
   return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}T${p(n.getHours())}:${p(n.getMinutes())}`;
 }
 function toast(m) {
@@ -570,11 +570,42 @@ function setGeminiStatus(isSet) {
 }
 
 // ── Crop Editor ───────────────────────────────────────────────────────
-let _srcImg = null, _rotation = 0, _sel = null, _drag = false, _layout = {}, _photoDate = null;
+let _srcImg = null, _rotation = 0, _sel = null, _drag = false, _layout = {}, _photoDate = null, _photoDateExif = false;
 
-function openCropEditor(e) {
+// Capture time from a JPEG's EXIF (DateTimeOriginal, else DateTime); null if absent.
+// Phones often set a picked file's lastModified to the moment it was picked, so EXIF is preferred.
+async function exifDate(file) {
+  try {
+    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+    if (v.getUint16(0) !== 0xFFD8) return null;
+    for (let p = 2; p + 10 < v.byteLength; p += 2 + v.getUint16(p + 2)) {
+      const marker = v.getUint16(p);
+      if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) return null;
+      if (marker !== 0xFFE1 || v.getUint32(p + 4) !== 0x45786966) continue; // APP1 "Exif"
+      const t = p + 10, le = v.getUint16(t) === 0x4949;
+      const u16 = o => v.getUint16(t + o, le), u32 = o => v.getUint32(t + o, le);
+      const findTag = (ifd, tag) => {
+        for (let i = 0, n = u16(ifd); i < n; i++) if (u16(ifd + 2 + i * 12) === tag) return ifd + 2 + i * 12;
+        return null;
+      };
+      const ifd0 = u32(4), sub = findTag(ifd0, 0x8769);
+      const e = (sub && findTag(u32(sub + 8), 0x9003)) || findTag(ifd0, 0x0132);
+      if (!e) return null;
+      let str = '';
+      for (let i = 0; i < 19; i++) str += String.fromCharCode(v.getUint8(t + u32(e + 8) + i));
+      const m = str.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/);
+      return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) : null;
+    }
+  } catch {}
+  return null;
+}
+
+async function openCropEditor(e) {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
-  _photoDate = new Date(f.lastModified);
+  const exif = await exifDate(f);
+  _photoDate = exif || new Date(f.lastModified);
+  _photoDateExif = !!exif;
+  document.getElementById('fDate').value = nowDT(_photoDate);
   const r = new FileReader();
   r.onload = ev => {
     const img = new Image();
@@ -705,10 +736,10 @@ function showPreview(dataUrl) {
   document.getElementById('cropPreviewImg').src = dataUrl;
   const dateEl = document.getElementById('cropPreviewDate');
   if (_photoDate) {
-    dateEl.textContent = 'Taken ' + _photoDate.toLocaleString(undefined, {
+    dateEl.textContent = (_photoDateExif ? 'Taken ' : 'File date ') + _photoDate.toLocaleString(undefined, {
       month: 'short', day: 'numeric', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
-    });
+    }) + ' · used as entry date';
   } else {
     dateEl.textContent = '';
   }
