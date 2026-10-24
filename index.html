@@ -109,6 +109,12 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'O
 }
 .api-box input:focus { border-color:var(--mint); }
 .api-box p { font-size:11px; color:var(--text3); line-height:1.6; }
+.sync-btn {
+  font-size:13px; font-weight:600; padding:9px; border-radius:7px;
+  border:1px solid var(--border2); background:var(--bg3); color:var(--mint);
+  cursor:pointer; font-family:'Outfit',sans-serif;
+}
+.sync-btn:active { background:rgba(0,229,160,.08); }
 
 /* ── Photo button ────────────────────────────────────────────────────── */
 .photo-btn {
@@ -212,6 +218,13 @@ select {
 }
 .cw { position:relative; width:100%; height:220px; margin-bottom:28px; }
 .cpw { position:relative; width:100%; height:160px; margin-bottom:16px; }
+.cs { position:relative; width:100%; height:140px; margin-bottom:24px; }
+.rng { display:flex; gap:4px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--rs); padding:3px; margin-bottom:14px; }
+.rng button {
+  flex:1; padding:6px 0; background:none; border:none; border-radius:7px;
+  color:var(--text2); font-size:12px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer;
+}
+.rng button.on { background:var(--bg3); color:var(--text); }
 .comp-hdr { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
 
 /* ── Empty state ─────────────────────────────────────────────────────── */
@@ -325,6 +338,20 @@ select {
         </div>
       </details>
 
+      <!-- GitHub sync -->
+      <details class="api-box" id="syncBox">
+        <summary>
+          <span>Cloud sync (GitHub)</span>
+          <span id="syncStatus" style="font-size:11px;font-weight:600;color:var(--text3);">not set</span>
+        </summary>
+        <div class="inner">
+          <input type="password" id="ghTokenInput" placeholder="github_pat_…" onchange="saveGhSettings()">
+          <input type="text" id="ghRepoInput" placeholder="owner/repo" onchange="saveGhSettings()" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button class="sync-btn" onclick="syncNow()">Sync now</button>
+          <p id="syncMsg">Fine-grained token at <strong style="color:var(--text2);">github.com/settings/tokens</strong>: only this repo, Contents → Read and write.</p>
+        </div>
+      </details>
+
       <!-- Photo buttons -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
         <div class="photo-btn" style="margin-bottom:0;">
@@ -409,7 +436,20 @@ select {
           <option value="moisture">Moisture %</option>
         </select>
       </div>
+      <div class="rng" id="cRng">
+        <button data-r="30" onclick="setRange(this)">1M</button>
+        <button data-r="90" onclick="setRange(this)">3M</button>
+        <button data-r="365" onclick="setRange(this)">1Y</button>
+        <button data-r="1095" onclick="setRange(this)">3Y</button>
+        <button data-r="all" class="on" onclick="setRange(this)">All</button>
+      </div>
       <div class="cw"><canvas id="lChart"></canvas></div>
+      <div class="sl">Fat mass (kg)</div>
+      <div class="cs"><canvas id="fmChart"></canvas></div>
+      <div class="sl">Lean mass (kg)</div>
+      <div class="cs"><canvas id="lmChart"></canvas></div>
+      <div class="sl">Weight per year: range &amp; average (kg)</div>
+      <div class="cs"><canvas id="yChart"></canvas></div>
       <div class="comp-hdr">
         <div class="sl" style="margin:0">Composition</div>
         <div id="compDate" style="font-size:11px;color:var(--text3);font-weight:500;"></div>
@@ -449,7 +489,7 @@ select {
 // ── Storage ───────────────────────────────────────────────────────────
 const SK = 'wt_v1', HK = 'wt_ht', GK = 'wt_gemini';
 const load = () => { try { return JSON.parse(localStorage.getItem(SK) || '[]'); } catch { return []; } };
-const save = a => localStorage.setItem(SK, JSON.stringify(a));
+const save = a => { localStorage.setItem(SK, JSON.stringify(a)); queueSync(); };
 const getHt = () => parseFloat(localStorage.getItem(HK)) || null;
 const getGeminiKey = () => localStorage.getItem(GK) || '';
 
@@ -762,6 +802,112 @@ Return ONLY a JSON object — no extra text, no markdown — with these keys (nu
   }
 }
 
+// ── GitHub sync ───────────────────────────────────────────────────────
+// The repo file is the shared copy. Each sync is a three-way merge per date:
+// if the local entry changed since the last sync (wt_base), local wins
+// (including deletions); otherwise take whatever the remote has.
+const TK = 'wt_gh_token', RK = 'wt_gh_repo', BK = 'wt_gh_base';
+const GH_FILE = 'weight-data.json', GH_DEFAULT_REPO = 'Janbacer/weight-data';
+const getGhToken = () => localStorage.getItem(TK) || '';
+const getGhRepo = () => localStorage.getItem(RK) || GH_DEFAULT_REPO;
+let _ghSha = null, _syncTimer = null, _syncChain = Promise.resolve();
+
+function saveGhSettings() {
+  localStorage.setItem(TK, document.getElementById('ghTokenInput').value.trim());
+  localStorage.setItem(RK, document.getElementById('ghRepoInput').value.trim() || GH_DEFAULT_REPO);
+  _ghSha = null;
+  syncNow();
+}
+function setSyncStatus(type, msg) {
+  const el = document.getElementById('syncStatus');
+  const colors = { ok: 'var(--mint)', err: 'var(--red)', busy: 'var(--text2)', off: 'var(--text3)' };
+  el.textContent = msg;
+  el.style.color = colors[type];
+}
+function b64enc(s) {
+  let bin = '';
+  new TextEncoder().encode(s).forEach(c => bin += String.fromCharCode(c));
+  return btoa(bin);
+}
+function b64dec(s) {
+  return new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), c => c.charCodeAt(0)));
+}
+const sortByDT = a => a.sort((x, y) => (x.datetime || x.date).localeCompare(y.datetime || y.date));
+
+function merge3(base, local, remote) {
+  const byDate = a => Object.fromEntries(a.map(e => [e.date, e]));
+  const B = byDate(base), L = byDate(local), R = byDate(remote), out = [];
+  new Set([...Object.keys(B), ...Object.keys(L), ...Object.keys(R)]).forEach(d => {
+    const e = JSON.stringify(L[d]) !== JSON.stringify(B[d]) ? L[d] : R[d];
+    if (e) out.push(e);
+  });
+  return sortByDT(out);
+}
+
+async function ghRequest(method, body) {
+  const res = await fetch(`https://api.github.com/repos/${getGhRepo()}/contents/${GH_FILE}`, {
+    method, cache: 'no-store',
+    headers: { Authorization: `Bearer ${getGhToken()}`, Accept: 'application/vnd.github+json' },
+    body: body && JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const msgs = { 401: 'token invalid or expired', 403: 'token lacks access', 404: 'repo/file not found' };
+    const err = new Error(msgs[res.status] || `GitHub error ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+async function doSync(retry = true) {
+  try {
+    setSyncStatus('busy', 'syncing…');
+    const file = await ghRequest('GET');
+    _ghSha = file.sha;
+    const remote = JSON.parse(b64dec(file.content));
+    const base = JSON.parse(localStorage.getItem(BK) || '[]');
+    const merged = merge3(base, load(), remote);
+    const json = JSON.stringify(merged, null, 2);
+    if (json !== JSON.stringify(remote, null, 2)) {
+      const res = await ghRequest('PUT', {
+        message: `Update weight data (${merged.length} entries)`,
+        content: b64enc(json + '\n'),
+        sha: _ghSha,
+      });
+      _ghSha = res.content.sha;
+    }
+    localStorage.setItem(SK, JSON.stringify(merged));
+    localStorage.setItem(BK, JSON.stringify(merged));
+    refreshViews();
+    setSyncStatus('ok', '✓ synced ' + new Date().toTimeString().slice(0, 5));
+  } catch (err) {
+    // 409: the file changed between our GET and PUT; merge again once
+    if (err.status === 409 && retry) return doSync(false);
+    setSyncStatus('err', navigator.onLine ? err.message : 'offline');
+  }
+}
+function syncNow() {
+  clearTimeout(_syncTimer);
+  if (!getGhToken()) { setSyncStatus('off', 'not set'); return; }
+  _syncChain = _syncChain.then(() => doSync());
+}
+function queueSync() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncNow, 800);
+}
+function refreshViews() {
+  updSub();
+  if (document.getElementById('tab-hist').classList.contains('on')) renderHist();
+  if (document.getElementById('tab-chrt').classList.contains('on')) renderCharts();
+}
+
+// Runs here, not in Init, because the sync consts above must exist first
+document.getElementById('ghTokenInput').value = getGhToken();
+document.getElementById('ghRepoInput').value = getGhRepo();
+syncNow();
+window.addEventListener('online', () => syncNow());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
+
 // ── Save entry ────────────────────────────────────────────────────────
 function saveEntry() {
   const dt = document.getElementById('fDate').value || nowDT();
@@ -872,7 +1018,7 @@ function expJSON() {
 }
 
 // ── Charts ────────────────────────────────────────────────────────────
-let lInst = null, cInst = null;
+let lInst = null, cInst = null, fmInst = null, lmInst = null, yInst = null, cRange = 'all';
 const metColors = {
   weight:   { line: '#00e5a0', fill: 'rgba(0,229,160,.07)',   point: '#00e5a0' },
   bmi:      { line: '#4d9fff', fill: 'rgba(77,159,255,.07)',  point: '#4d9fff' },
@@ -880,34 +1026,108 @@ const metColors = {
   muscle:   { line: '#ffb340', fill: 'rgba(255,179,64,.07)',  point: '#ffb340' },
   moisture: { line: '#b07cff', fill: 'rgba(176,124,255,.07)', point: '#b07cff' },
 };
-function renderCharts() {
-  const arr = load(), met = document.getElementById('cMet').value;
-  const keyMap = { weight: 'weight', bmi: 'bmi', fat: 'fat', muscle: 'muscle', moisture: 'moisture' };
-  if (lInst) { lInst.destroy(); lInst = null; }
-  if (cInst) { cInst.destroy(); cInst = null; }
-  const fl = arr.filter(e => e[keyMap[met]] != null);
-  if (!fl.length) return;
-  const gc = 'rgba(255,255,255,.05)', tc = '#454a60';
-  lInst = new Chart(document.getElementById('lChart'), {
+const gc = 'rgba(255,255,255,.05)', tc = '#454a60';
+const tickFont = { size: 11, family: 'Outfit' };
+const entryTime = e => new Date(e.date + 'T12:00:00').getTime();
+
+function setRange(btn) {
+  document.querySelectorAll('#cRng button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  cRange = btn.dataset.r;
+  renderCharts();
+}
+
+// Visible window: the chosen range ending today, or first entry → today for "All".
+// The axis is a true time scale, so equal time spans take equal width (a year is
+// always a year wide, however many weigh-ins it has).
+function timeWindow(arr) {
+  const max = Date.now();
+  const min = cRange === 'all' ? (arr.length ? entryTime(arr[0]) : max) : max - cRange * 864e5;
+  return { min, max };
+}
+function timeAxis({ min, max }) {
+  const days = (max - min) / 864e5;
+  const unit = days <= 45 ? 'day' : days <= 730 ? 'month' : 'year';
+  return {
+    type: 'time', min, max,
+    time: { unit, displayFormats: { day: 'MMM d', month: "MMM ''yy", year: 'yyyy' }, tooltipFormat: 'MMM d, yyyy' },
+    grid: { color: gc }, border: { display: false },
+    ticks: { color: tc, font: tickFont, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 },
+  };
+}
+function lineChart(canvas, points, color, win) {
+  return new Chart(canvas, {
     type: 'line',
-    data: { datasets: [{ data: fl.map(e => ({ x: new Date(e.date + 'T12:00:00'), y: e[keyMap[met]] })),
-      borderColor: metColors[met].line, backgroundColor: metColors[met].fill,
+    data: { datasets: [{ data: points,
+      borderColor: color.line, backgroundColor: color.fill,
       borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
-      pointBackgroundColor: metColors[met].point, pointBorderColor: '#0d0f14', pointBorderWidth: 2,
-      fill: true, tension: .4 }] },
+      pointBackgroundColor: color.point, pointBorderColor: '#0d0f14', pointBorderWidth: 2,
+      fill: true, cubicInterpolationMode: 'monotone' }] },
     options: {
       responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
       plugins: { legend: { display: false } },
       scales: {
-        x: { type: 'time',
-          time: { unit: fl.length <= 14 ? 'day' : 'month', displayFormats: { day: 'MMM d', month: "MMM ''yy" }, tooltipFormat: 'MMM d, yyyy' },
-          grid: { color: gc }, border: { display: false },
-          ticks: { color: tc, font: { size: 11, family: 'Outfit' }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } },
-        y: { grid: { color: gc }, border: { display: false },
-          ticks: { color: tc, font: { size: 11, family: 'Outfit' } } }
-      }
-    }
+        x: timeAxis(win),
+        y: { grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: tickFont } },
+      },
+    },
   });
+}
+
+function renderCharts() {
+  const arr = load(), met = document.getElementById('cMet').value;
+  [lInst, cInst, fmInst, lmInst, yInst].forEach(c => c && c.destroy());
+  lInst = cInst = fmInst = lmInst = yInst = null;
+  if (!arr.length) return;
+  const win = timeWindow(arr);
+  const inWin = e => entryTime(e) >= win.min;
+
+  // Main metric
+  const fl = arr.filter(e => e[met] != null && inWin(e));
+  lInst = lineChart(document.getElementById('lChart'),
+    fl.map(e => ({ x: entryTime(e), y: e[met] })), metColors[met], win);
+
+  // Fat vs lean mass in kg — shows whether a weight change is fat or lean tissue
+  // (body-fat readings start later than weight, so "All" starts at the first one)
+  const bc = arr.filter(e => e.weight != null && e.fat != null && inWin(e));
+  const bwin = cRange === 'all' && bc.length ? { min: entryTime(bc[0]), max: win.max } : win;
+  fmInst = lineChart(document.getElementById('fmChart'),
+    bc.map(e => ({ x: entryTime(e), y: +(e.weight * e.fat / 100).toFixed(1) })), metColors.fat, bwin);
+  lmInst = lineChart(document.getElementById('lmChart'),
+    bc.map(e => ({ x: entryTime(e), y: +(e.weight * (1 - e.fat / 100)).toFixed(1) })), metColors.bmi, bwin);
+
+  // Per year (always all years): min–max range bar with the average as a dot
+  const years = {};
+  arr.filter(e => e.weight != null).forEach(e => (years[e.date.slice(0, 4)] ||= []).push(e.weight));
+  const ys = Object.keys(years).sort();
+  const yStats = ys.map(y => {
+    const w = years[y];
+    return { avg: w.reduce((s, v) => s + v, 0) / w.length, min: Math.min(...w), max: Math.max(...w), n: w.length };
+  });
+  yInst = new Chart(document.getElementById('yChart'), {
+    type: 'bar',
+    data: { labels: ys, datasets: [
+      { type: 'line', data: yStats.map(s => +s.avg.toFixed(1)), showLine: false,
+        pointRadius: 5, pointHoverRadius: 7, pointBackgroundColor: '#eef0f6', pointBorderColor: '#0d0f14', pointBorderWidth: 2 },
+      { data: yStats.map(s => [s.min, s.max]), backgroundColor: 'rgba(0,229,160,.35)',
+        borderRadius: 4, borderSkipped: false, maxBarThickness: 28 },
+    ] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { filter: c => c.datasetIndex === 0, callbacks: {
+        label: c => `avg ${c.parsed.y.toFixed(1)} kg`,
+        afterLabel: c => { const s = yStats[c.dataIndex]; return `range ${s.min.toFixed(1)}–${s.max.toFixed(1)} · ${s.n} entries`; },
+      } } },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: tc, font: tickFont } },
+        y: { beginAtZero: false, grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: tickFont } },
+      },
+    },
+  });
+
+  // Latest composition
   const lat = arr[arr.length - 1];
   const cd = [
     { label: 'Fat',      val: lat.fat,      color: '#ff5c6c' },
@@ -923,7 +1143,7 @@ function renderCharts() {
       options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: { size: 11, family: 'Outfit' } }, max: 100 },
+          x: { grid: { color: gc }, border: { display: false }, ticks: { color: tc, font: tickFont }, max: 100 },
           y: { grid: { display: false }, border: { display: false }, ticks: { color: '#7a7f96', font: { size: 12, family: 'Outfit', weight: '500' } } }
         }
       }

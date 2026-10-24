@@ -1,6 +1,17 @@
-*
-!.gitignore
-!weight-tracker-pwa/*
-!7seg/*.jpg
-!7seg/*.html
-!README.md
+# Personal health data — never commit (synced to the private weight-data repo instead)
+weight-data.json
+*.xlsx
+*.csv
+MiFitness_data_*/
+
+# Scale-reading experiments (local only)
+7seg/
+
+# Build artifacts
+*.zip
+
+# OS / tooling
+__pycache__/
+.DS_Store
+Thumbs.db
+desktop.ini
