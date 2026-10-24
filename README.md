@@ -85,9 +85,8 @@ python -m http.server 8000
 
 Charts use [Chart.js](https://www.chartjs.org/) with the date-fns adapter, loaded from a CDN.
 
-### Branches
-- `website`: deployed to GitHub Pages
-- `main`: older snapshot
+### Deployment
+`main` is deployed to GitHub Pages (Settings → Pages → Deploy from branch → `main`, `/ (root)`).
 
 ### Private data
 `.gitignore` keeps personal data out of this public repo: `weight-data.json`, `*.xlsx`, `*.csv`, the `MiFitness_data_*` exports, and the `7seg/` experiments. Before committing after adding new personal files, check `git status`.
